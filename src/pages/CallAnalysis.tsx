@@ -11,6 +11,7 @@ import {
   Download,
   Link2,
   Loader2,
+  MessageSquare,
   Phone,
   RefreshCw,
   Target,
@@ -32,12 +33,20 @@ import {
   CallAnalysisSummary,
   CallDailyOverview,
   CallSignalBreakdown,
+  CallRepQuality,
+  CallHourlyVolume,
+  CallScheduleLoadDay,
+  CallObjectionCategory,
   fetchCallAgentDailyBreakdown,
   fetchCallAnalysisExportRows,
   fetchCallAnalysisRows,
   fetchCallAnalysisSummary,
   fetchCallDailyOverview,
   fetchCallSignalBreakdowns,
+  fetchCallRepQuality,
+  fetchCallHourlyVolume,
+  fetchCallScheduleLoad,
+  fetchCallObjectionHandling,
   fetchThreeCxStatus,
   linkCallRecordToLead,
   markCallRecordReviewed,
@@ -63,6 +72,7 @@ import {
 } from '@/components/callAnalysis/types';
 import { KpiCard } from '@/components/callAnalysis/KpiCard';
 import { FunnelPanel } from '@/components/callAnalysis/FunnelPanel';
+import { OutcomeDonut } from '@/components/callAnalysis/OutcomeDonut';
 import { TrendPanel } from '@/components/callAnalysis/TrendPanel';
 import { QueueStrip } from '@/components/callAnalysis/QueueStrip';
 import { HighlightsBar } from '@/components/callAnalysis/HighlightsBar';
@@ -72,6 +82,18 @@ import { InboundPanel } from '@/components/callAnalysis/InboundPanel';
 import { EffortPanel } from '@/components/callAnalysis/EffortPanel';
 import { TeamAverageStrip } from '@/components/callAnalysis/TeamAverageStrip';
 import { AgentLeaderboard } from '@/components/callAnalysis/AgentLeaderboard';
+import { RepScorecards } from '@/components/callAnalysis/RepScorecards';
+import { CoachingScoreChart } from '@/components/callAnalysis/CoachingScoreChart';
+import { SpeedToLeadChart } from '@/components/callAnalysis/SpeedToLeadChart';
+import { ByRepVolumeChart } from '@/components/callAnalysis/ByRepVolumeChart';
+import { HourlyVolumeChart } from '@/components/callAnalysis/HourlyVolumeChart';
+import { ScheduleLoadChart } from '@/components/callAnalysis/ScheduleLoadChart';
+import { CallRatingTiers } from '@/components/callAnalysis/CallRatingTiers';
+import { SentimentBars } from '@/components/callAnalysis/SentimentBars';
+import { ObjectionBoard } from '@/components/callAnalysis/ObjectionBoard';
+import { ObjectionDrill } from '@/components/callAnalysis/ObjectionDrill';
+import { TeamHeadlineStrip } from '@/components/callAnalysis/TeamHeadlineStrip';
+import { ConversionByRep } from '@/components/callAnalysis/ConversionByRep';
 import { SignalSummaryRow } from '@/components/callAnalysis/SignalSummaryRow';
 import { CoachingRatioCard } from '@/components/callAnalysis/CoachingRatioCard';
 import { ObjectionShiftStrip } from '@/components/callAnalysis/ObjectionShiftStrip';
@@ -247,7 +269,7 @@ const emptyDailyOverview: CallDailyOverview = {
   op1Calls: 0,
 };
 
-type CallAnalysisTab = 'overview' | 'agents' | 'insights' | 'calls';
+type CallAnalysisTab = 'overview' | 'agents' | 'objections' | 'insights' | 'calls';
 
 const matchLabel = (status?: string) => {
   if (status === 'matched') return 'Linked to a lead';
@@ -458,6 +480,11 @@ export const CallAnalysis: React.FC = () => {
   const [previousAgentBreakdown, setPreviousAgentBreakdown] = useState<CallAgentDailyBreakdown[]>([]);
   const [signalBreakdowns, setSignalBreakdowns] = useState<CallSignalBreakdown[]>([]);
   const [previousSignalBreakdowns, setPreviousSignalBreakdowns] = useState<CallSignalBreakdown[]>([]);
+  const [repQuality, setRepQuality] = useState<CallRepQuality[]>([]);
+  const [hourlyVolume, setHourlyVolume] = useState<CallHourlyVolume[]>([]);
+  const [scheduleLoad, setScheduleLoad] = useState<CallScheduleLoadDay[]>([]);
+  const [objectionHandling, setObjectionHandling] = useState<CallObjectionCategory[]>([]);
+  const [selectedObjection, setSelectedObjection] = useState<string | null>(null);
   const [inboundHotInstructed, setInboundHotInstructed] = useState(0);
   const [threeCxStatus, setThreeCxStatus] = useState<ThreeCxStatus | null>(null);
   const [rows, setRows] = useState<CallAnalysisRow[]>([]);
@@ -576,6 +603,10 @@ export const CallAnalysis: React.FC = () => {
         inboundHotSummary,
         statusData,
         rowData,
+        repQualityData,
+        hourlyData,
+        scheduleData,
+        objectionData,
       ] = await Promise.all([
         fetchCallAnalysisSummary(filters),
         fetchCallDailyOverview(filters),
@@ -588,6 +619,10 @@ export const CallAnalysis: React.FC = () => {
         fetchCallAnalysisSummary({ ...filters, callType: 'inbound_hot' }).catch(() => emptySummary),
         fetchThreeCxStatus().catch(() => null),
         fetchCallAnalysisRows(filters, page, PAGE_SIZE),
+        fetchCallRepQuality(filters).catch(() => [] as CallRepQuality[]),
+        fetchCallHourlyVolume(filters).catch(() => [] as CallHourlyVolume[]),
+        fetchCallScheduleLoad(filters).catch(() => [] as CallScheduleLoadDay[]),
+        fetchCallObjectionHandling(filters).catch(() => [] as CallObjectionCategory[]),
       ]);
 
       setSummary(summaryData);
@@ -600,6 +635,10 @@ export const CallAnalysis: React.FC = () => {
       setPreviousSignalBreakdowns(previousSignalData);
       setInboundHotInstructed(inboundHotSummary.officialInstructions);
       setThreeCxStatus(statusData);
+      setRepQuality(repQualityData);
+      setHourlyVolume(hourlyData);
+      setScheduleLoad(scheduleData);
+      setObjectionHandling(objectionData);
 
       // While someone is triaging (drawer open or rows selected), a silent poll
       // must not swap the rows underneath them — stage instead and show a banner.
@@ -1664,7 +1703,7 @@ export const CallAnalysis: React.FC = () => {
             )}
           </div>
           <p className="mt-1 text-sm text-gray-600">
-            Yesterday's calls, AI call summaries, and what needs action today.
+            Live call performance, coaching, objections and outcomes — at a glance.
           </p>
         </div>
 
@@ -1874,8 +1913,9 @@ export const CallAnalysis: React.FC = () => {
       <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
         {[
           { id: 'overview', label: 'Overview', icon: BarChart3 },
-          { id: 'agents', label: 'Agents', icon: UsersIcon },
-          { id: 'insights', label: 'AI Insights', icon: Brain },
+          { id: 'agents', label: 'Reps', icon: UsersIcon },
+          { id: 'objections', label: 'Objections', icon: MessageSquare },
+          { id: 'insights', label: 'Behaviour', icon: Brain },
           { id: 'calls', label: 'Calls', icon: Phone },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -1940,7 +1980,40 @@ export const CallAnalysis: React.FC = () => {
 
       {activeTab === 'agents' && (
         <div className="space-y-5">
-          <TeamAverageStrip overview={dailyOverview} />
+          <TeamHeadlineStrip
+            agents={agentBreakdown}
+            avgConversion={repQuality.length ? Math.round(repQuality.reduce((s, q) => s + q.conversionRate, 0) / repQuality.length) : 0}
+            repTrends={repQuality.map((q) => q.coachingTrend)}
+          />
+          <RepScorecards
+            agents={agentBreakdown}
+            onSelectAgent={(clickedAgentUserId) => {
+              if (!clickedAgentUserId) return;
+              setAgentUserId(clickedAgentUserId);
+              resetToFirstPage();
+              setActiveTab('calls');
+            }}
+            trendByAgent={Object.fromEntries(repQuality.map((q) => [q.agentUserId || q.agentName, q.coachingTrend]))}
+          />
+          <div className="grid gap-5 xl:grid-cols-2">
+            <CoachingScoreChart
+              agents={agentBreakdown}
+              onSelect={(clickedAgentUserId) => {
+                if (!clickedAgentUserId) return;
+                setAgentUserId(clickedAgentUserId);
+                resetToFirstPage();
+                setActiveTab('calls');
+              }}
+            />
+            <SpeedToLeadChart agents={agentBreakdown} />
+          </div>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <CallRatingTiers
+              rows={repQuality.map((q) => ({ name: q.agentName, excellent: q.excellent, good: q.good, meetsFloor: q.meetsFloor, belowFloor: q.belowFloor }))}
+            />
+            <SentimentBars rows={repQuality.map((q) => ({ name: q.agentName, score: q.sentimentScore }))} />
+          </div>
+          <ConversionByRep rows={repQuality.map((q) => ({ name: q.agentName, rate: q.conversionRate }))} />
           <AgentLeaderboard
             agents={agentBreakdown}
             previousAgents={previousAgentBreakdown}
@@ -1954,6 +2027,29 @@ export const CallAnalysis: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'objections' && (
+        <div className="space-y-5">
+          <div className="grid gap-5 xl:grid-cols-2">
+            <ObjectionBoard
+              categories={objectionHandling}
+              onDrill={(category) => setSelectedObjection(category)}
+            />
+            {selectedObjection ? (
+              <ObjectionDrill
+                category={selectedObjection}
+                instances={objectionHandling.find((c) => c.category === selectedObjection)?.instances || []}
+                onClose={() => setSelectedObjection(null)}
+              />
+            ) : (
+              <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-400 shadow-sm">
+                Select an objection on the left to hear the exact graded exchanges.
+              </div>
+            )}
+          </div>
+          <ObjectionShiftStrip current={signalBreakdowns} previous={previousSignalBreakdowns} />
+        </div>
+      )}
+
       {activeTab === 'insights' && (
         <div className="space-y-5">
           <SignalSummaryRow
@@ -1963,10 +2059,7 @@ export const CallAnalysis: React.FC = () => {
             pendingAi={summary.pendingAi}
             onTileClick={(signalValue) => applyThemeFilter({ signalType: 'Signal', signalValue })}
           />
-          <div className="grid gap-5 xl:grid-cols-2">
-            <CoachingRatioCard uspMentions={dailyOverview.uspMentions} priceConcerns={dailyOverview.priceConcerns} />
-            <ObjectionShiftStrip current={signalBreakdowns} previous={previousSignalBreakdowns} />
-          </div>
+          <CoachingRatioCard uspMentions={dailyOverview.uspMentions} priceConcerns={dailyOverview.priceConcerns} />
           <RiskFlagsPanel
             flagged={queueCounts.flaggedRows
               ? queueCounts.flaggedRows.map((row) => ({ callId: row.id, leadName: row.leadName, flags: row.managerRiskFlags }))
@@ -2001,6 +2094,12 @@ export const CallAnalysis: React.FC = () => {
 
       {activeTab === 'calls' && (
         <div className="space-y-4">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <OutcomeDonut overview={dailyOverview} />
+            <HourlyVolumeChart hours={hourlyVolume} />
+            <ScheduleLoadChart days={scheduleLoad} />
+            <ByRepVolumeChart agents={agentBreakdown} />
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {viewSegments.map((segment) => (
               <button

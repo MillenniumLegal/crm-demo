@@ -194,6 +194,7 @@ export const LeadManagement: React.FC = () => {
   const leadsPerPage = 18; // Optimized for faster loading
   const [totalLeadsCount, setTotalLeadsCount] = useState(0);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [activeChip, setActiveChip] = useState<string>('all');
   // Quote notifications state
   const [quoteNotifications, setQuoteNotifications] = useState<QuoteNotification[]>([]);
   const [currentNotificationIndex, setCurrentNotificationIndex] = useState(0);
@@ -4829,6 +4830,41 @@ const formatStatusLabel = (status: string) => {
             </p>
           </div>
         )}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'hot', label: 'Hot' },
+            { key: 'new', label: 'New' },
+            { key: 'contacted', label: 'Contacted' },
+            { key: 'interested', label: 'Interested' },
+            { key: 'quoted', label: 'Quoted' },
+            { key: 'instructed', label: 'Instructed' },
+          ].map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => {
+                setActiveChip(chip.key);
+                setCurrentPage(1);
+                setAdvancedFilters((p) => ({ ...p, priority: chip.key === 'hot' ? 'High' : '' }));
+                if (chip.key === 'all' || chip.key === 'hot') setFilterStatus('All');
+                else if (chip.key === 'new') setFilterStatus('New');
+                else if (chip.key === 'contacted') setFilterStatus('Contacted');
+                else if (chip.key === 'interested') setFilterStatus('Interested');
+                else if (chip.key === 'quoted') setFilterStatus('Quote Sent');
+                else if (chip.key === 'instructed') setFilterStatus('Sold');
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                activeChip === chip.key
+                  ? 'border-navy-300 bg-navy-50 text-navy-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              {activeChip === chip.key && <span className="h-1.5 w-1.5 rounded-full bg-navy-600" />}
+              {chip.label}
+            </button>
+          ))}
+        </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,340px),1fr))] gap-5">
           {paginatedLeads.map((lead) => {
             const quotesForLead = leadQuotesMap.get(lead.id) || [];
@@ -4942,6 +4978,21 @@ const formatStatusLabel = (status: string) => {
                   {lead.transactionType && (
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       {lead.transactionType}
+                    </span>
+                  )}
+                  {lead.propertyTenure && (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800" title="Tenure">
+                      {lead.propertyTenure}
+                    </span>
+                  )}
+                  {lead.isMortgaged === false && (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700" title="No mortgage on file">
+                      cash buyer
+                    </span>
+                  )}
+                  {typeof lead.propertyValue === 'number' && lead.propertyValue > 0 && (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-700 ring-1 ring-gray-200" title="Property value">
+                      £{Math.round(lead.propertyValue / 1000)}k
                     </span>
                   )}
                   {clientPosition && (

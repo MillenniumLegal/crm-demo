@@ -729,6 +729,142 @@ export async function fetchCallSignalBreakdowns(filters: CallAnalysisFilters): P
   }));
 }
 
+// --- Call Analysis visibility extras (per-rep quality/sentiment, hourly volume,
+// callback load, objection handling). AI-derived in production; same RPC contracts. ---
+
+export interface CallRepQuality {
+  agentUserId?: string;
+  agentName: string;
+  excellent: number;
+  good: number;
+  meetsFloor: number;
+  belowFloor: number;
+  sentimentScore: number;
+  conversionRate: number;
+  coachingTrend: number[];
+}
+
+export interface CallHourlyVolume {
+  hour: number;
+  inbound: number;
+  outbound: number;
+}
+
+export interface CallScheduleLoadDay {
+  label: string;
+  count: number;
+  tone?: 'good' | 'warn' | 'bad';
+}
+
+export type ObjectionHandlingQuality = 'STRONG' | 'ADEQUATE' | 'WEAK';
+export type ClientReaction = 'positive' | 'neutral' | 'pushed_back';
+
+export interface CallObjectionInstance {
+  rep: string;
+  client: string;
+  quality: ObjectionHandlingQuality;
+  clientSaid: string;
+  repReplied: string;
+  reaction: ClientReaction;
+  date?: string;
+}
+
+export interface CallObjectionCategory {
+  category: string;
+  count: number;
+  strong: number;
+  adequate: number;
+  weak: number;
+  quote?: string;
+  instances: CallObjectionInstance[];
+}
+
+export async function fetchCallRepQuality(filters: CallAnalysisFilters): Promise<CallRepQuality[]> {
+  const { data, error } = await supabase.rpc('get_call_rep_quality', {
+    p_start_date: filters.startDate,
+    p_end_date: filters.endDate,
+  });
+  if (error) {
+    console.error('Call rep quality RPC error:', error);
+    throw error;
+  }
+  return (data || []).map((row: any): CallRepQuality => ({
+    agentUserId: row.agent_user_id || undefined,
+    agentName: row.agent_name || row.agent_extension || 'Unmapped',
+    excellent: Number(row.excellent || 0),
+    good: Number(row.good || 0),
+    meetsFloor: Number(row.meets_floor || 0),
+    belowFloor: Number(row.below_floor || 0),
+    sentimentScore: Number(row.sentiment_score || 0),
+    conversionRate: Number(row.conversion_rate || 0),
+    coachingTrend: Array.isArray(row.coaching_trend) ? row.coaching_trend.map((v: any) => Number(v)) : [],
+  }));
+}
+
+export async function fetchCallHourlyVolume(filters: CallAnalysisFilters): Promise<CallHourlyVolume[]> {
+  const { data, error } = await supabase.rpc('get_call_hourly_volume', {
+    p_start_date: filters.startDate,
+    p_end_date: filters.endDate,
+    p_agent_user_id: blankToNull(filters.agentUserId),
+  });
+  if (error) {
+    console.error('Call hourly volume RPC error:', error);
+    throw error;
+  }
+  return (data || []).map((row: any): CallHourlyVolume => ({
+    hour: Number(row.hour || 0),
+    inbound: Number(row.inbound || 0),
+    outbound: Number(row.outbound || 0),
+  }));
+}
+
+export async function fetchCallScheduleLoad(filters: CallAnalysisFilters): Promise<CallScheduleLoadDay[]> {
+  const { data, error } = await supabase.rpc('get_call_schedule_load', {
+    p_start_date: filters.startDate,
+    p_end_date: filters.endDate,
+  });
+  if (error) {
+    console.error('Call schedule load RPC error:', error);
+    throw error;
+  }
+  return (data || []).map((row: any): CallScheduleLoadDay => ({
+    label: row.label || '',
+    count: Number(row.count || 0),
+    tone: row.tone || undefined,
+  }));
+}
+
+export async function fetchCallObjectionHandling(filters: CallAnalysisFilters): Promise<CallObjectionCategory[]> {
+  const { data, error } = await supabase.rpc('get_call_objection_handling', {
+    p_start_date: filters.startDate,
+    p_end_date: filters.endDate,
+    p_agent_user_id: blankToNull(filters.agentUserId),
+  });
+  if (error) {
+    console.error('Call objection handling RPC error:', error);
+    throw error;
+  }
+  return (data || []).map((row: any): CallObjectionCategory => ({
+    category: row.category || 'Other',
+    count: Number(row.count || 0),
+    strong: Number(row.strong || 0),
+    adequate: Number(row.adequate || 0),
+    weak: Number(row.weak || 0),
+    quote: row.quote || undefined,
+    instances: Array.isArray(row.instances)
+      ? row.instances.map((x: any): CallObjectionInstance => ({
+          rep: x.rep || 'Unknown',
+          client: x.client || '',
+          quality: x.quality || 'ADEQUATE',
+          clientSaid: x.client_said || x.clientSaid || '',
+          repReplied: x.rep_replied || x.repReplied || '',
+          reaction: x.reaction || 'neutral',
+          date: x.date || undefined,
+        }))
+      : [],
+  }));
+}
+
 export async function markCallRecordReviewed(callRecordId: string, reviewedBy: { id: string; name: string }): Promise<void> {
   const { error } = await supabase.rpc('set_call_record_review_status', {
     p_call_record_id: callRecordId,

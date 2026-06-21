@@ -129,6 +129,9 @@ header button{color:#6E665E !important;border-radius:8px !important}
 #root .fixed.inset-y-0.left-0[class*="bg-[#011E41]"]{background:#FFFFFF !important;border-right:1px solid #ECE4D8 !important;box-shadow:none !important}
 #root button[class*="bg-[#011E41]"]:not([class*="inset-y-0"]),#root a[class*="bg-[#011E41]"]:not([class*="inset-y-0"]),#root button[class*="bg-purple-6"],#root a[class*="bg-purple-6"]{background-color:#EA580C !important;border-color:#EA580C !important}
 #root .fixed.inset-y-0.left-0 [class*="bg-[#011E40]"],#root .fixed.inset-y-0.left-0 [class*="bg-[#011633]"]{background:transparent !important}
+/* legibility on the white rail: dark header text + readable muted variants (name, nav labels, role) */
+#root .fixed.inset-y-0.left-0 [class*="text-white"]{color:#3A332A !important}
+#root .fixed.inset-y-0.left-0 [class*="text-white/7"],#root .fixed.inset-y-0.left-0 [class*="text-white/6"],#root .fixed.inset-y-0.left-0 [class*="text-white/5"],#root .fixed.inset-y-0.left-0 [class*="text-white/4"],#root .fixed.inset-y-0.left-0 [class*="text-white/3"]{color:#6E665E !important}
 #root .fixed.inset-y-0.left-0 [class*="uppercase"]{font-family:'Plus Jakarta Sans',system-ui,sans-serif !important;letter-spacing:.06em !important;font-size:.64rem !important;font-weight:600 !important;color:#A89F95 !important;margin-top:14px !important;padding-top:12px !important;border-top:1px solid #F2ECE2 !important}
 #root .fixed.inset-y-0.left-0 a{font-family:'Plus Jakarta Sans',system-ui,sans-serif !important;font-size:.875rem !important;font-weight:500 !important;border-radius:8px !important;margin:1px 8px !important;padding:8px 11px !important}
 #root .fixed.inset-y-0.left-0 a[class*="bg-white/15"]{background:#FFF1E6 !important;color:#C2410C !important;font-weight:700 !important;box-shadow:none !important;border-left:3px solid #EA580C !important}
@@ -160,6 +163,10 @@ header button{color:#6E665E !important;border-radius:8px !important}
 [class*="bg-blue-500"] *,[class*="bg-blue-600"] *,[class*="bg-blue-700"] *,[class*="bg-sky-500"] *,[class*="bg-sky-600"] *,[class*="bg-indigo-500"] *,[class*="bg-indigo-600"] *{color:#175CD3 !important}
 [class*="absolute"][class*="bg-red-500"],[class*="absolute"][class*="bg-red-600"]{background-color:#DC2626 !important;border:0 !important;color:#fff !important}
 [class*="absolute"][class*="bg-red-500"] *,[class*="absolute"][class*="bg-red-600"] *{color:#fff !important}
+/* chart fills: solid 500-weight bars / dots / progress stay VIVID (the soften-solid rules above mute them; data viz wants full colour). Soft -50/-100 chips are untouched. */
+[class*="bg-green-500"],[class*="bg-emerald-500"]{background-color:#16A34A !important;border:0 !important}
+[class*="bg-amber-500"],[class*="bg-yellow-500"]{background-color:#F59E0B !important;border:0 !important}
+[class*="bg-red-500"],[class*="bg-rose-500"]{background-color:#EF4444 !important;border:0 !important}
 #root .fixed.inset-y-0.left-0 [class*="h-px"]{background-color:#E0D8C8 !important}
 
 /* ============================================================

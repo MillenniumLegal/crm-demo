@@ -20,7 +20,11 @@ import {
   GitCompareArrows,
   CheckCircle,
   Headphones,
-  Brain
+  Brain,
+  Activity,
+  ListChecks,
+  Wallet,
+  Briefcase
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -54,6 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       label: 'Work',
       items: [
         { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Agent'] },
+        { name: 'Pipeline Pulse', href: '/pipeline-pulse', icon: Activity, roles: ['Admin', 'Manager', 'Agent'] },
+        { name: 'Daily Pipeline', href: '/daily-pipeline', icon: ListChecks, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Lead Management', href: '/lead-management', icon: Users, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Pick Unassigned Lead', href: '/lead-management?stage=unassigned', icon: Hand, roles: ['Agent'] },
         { name: 'Diary & Tasks', href: '/diary', icon: Calendar, roles: ['Admin', 'Manager', 'Agent'] },
@@ -71,8 +77,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
     {
       label: 'Commercial',
       items: [
+        { name: 'Finance', href: '/finance', icon: Wallet, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Quotes', href: '/quotes', icon: FileText, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['Admin', 'Manager', 'Agent'] },
+        { name: 'Matters', href: '/matters', icon: Briefcase, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Comparison Leads', href: '/comparison-leads', icon: GitCompareArrows, roles: ['Manager'] },
       ],
     },

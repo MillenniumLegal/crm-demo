@@ -2825,6 +2825,34 @@ export async function deleteLeads(
   }
 }
 
+export interface PulseSegment { label: string; count: number; color?: string; tone?: 'good' | 'warn' | 'bad'; }
+export interface PulseBars { title: string; total: number; segments: PulseSegment[]; }
+export interface PulseFunnelStage { stage: string; count: number; movement: number; }
+export interface PulseCall { party: string; summary: string; outcome: string; when: string; }
+export interface PulseDeposit { name: string; ref: string; amount: number; status: string; when: string; }
+export interface PulseChip { key: string; label: string; count: number; }
+export interface PipelinePulse {
+  spread: { total: number; segments: PulseSegment[] };
+  hot: PulseBars;
+  otherActive: PulseBars;
+  overdue: PulseBars;
+  funnel: PulseFunnelStage[];
+  recentCalls: PulseCall[];
+  recentDeposits: PulseDeposit[];
+  chips: PulseChip[];
+}
+
+// Pipeline Pulse landing aggregate. In ty this RPC rolls leads up by status/stage,
+// overdue buckets, hot/temperature, today's movement, and recent activity.
+export async function fetchPipelinePulse(): Promise<PipelinePulse> {
+  const { data, error } = await supabase.rpc('get_pipeline_pulse', {});
+  if (error) {
+    console.error('Pipeline pulse RPC error:', error);
+    throw error;
+  }
+  return data as PipelinePulse;
+}
+
 // Get dashboard statistics
 export async function getDashboardStats(userId?: string, role?: string): Promise<{
   totalLeads: number;

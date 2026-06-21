@@ -4,6 +4,10 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Layout } from '@/components/Layout/Layout';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
+import PipelinePulse from '@/pages/PipelinePulse';
+import DailyPipeline from '@/pages/DailyPipeline';
+import Finance from '@/pages/Finance';
+import Matters from '@/pages/Matters';
 import { LeadManagement } from '@/pages/LeadManagement';
 import { Quotes } from '@/pages/Quotes';
 import { Payments } from '@/pages/Payments';
@@ -44,6 +48,46 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pipeline-pulse"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <PipelinePulse />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/daily-pipeline"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DailyPipeline />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Finance />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/matters"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Matters />
                 </Layout>
               </ProtectedRoute>
             }

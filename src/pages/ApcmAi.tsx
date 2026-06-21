@@ -25,6 +25,18 @@ import {
   requestDigestRefresh,
   TemplateAnswer,
 } from '@/services/apcmAiService';
+import { ApcmAiActionBoard, ApcmAiAction } from '@/components/ApcmAiActionBoard';
+
+// Demo: curated priority actions. In ty these are computed from the live signals
+// (stalled hot leads, coaching scores, objection handling, callbacks, instructions).
+const PRIORITY_ACTIONS: ApcmAiAction[] = [
+  { severity: 'high', icon: 'flame', title: '5 hot leads stalled 7+ days', detail: 'Qualified, hot leads with no contact this week — instructions slipping away. Work them before they go cold.', cta: 'Open stalled hot leads', href: '/lead-management?pulse=stalled' },
+  { severity: 'high', icon: 'coaching', title: 'James Okoro dropped to a 50 coaching score', detail: 'Needs coaching: 12h speed-to-lead and weak objection handling. Listen to a couple of his calls today.', cta: 'Open his calls', href: '/call-analysis' },
+  { severity: 'med', icon: 'objection', title: 'Comparing Quotes handled well only 25%', detail: '28 calls this week, our worst-handled objection. Run a quick huddle on value framing versus price.', cta: 'See the exchanges', href: '/call-analysis' },
+  { severity: 'med', icon: 'callback', title: '69 callbacks overdue, 59 over 3 days', detail: 'Promised callbacks are slipping. Each missed one risks a lost instruction; clear the oldest first.', cta: 'Open the diary', href: '/diary' },
+  { severity: 'med', icon: 'flame', title: '27 leads quoted with no follow-up', detail: 'Quotes sent but untouched since. A nudge now lifts conversion; prioritise the highest-value ones.', cta: 'Open quoted leads', href: '/lead-management?pulse=quoted-no-touch' },
+  { severity: 'low', icon: 'win', title: '17 instructions confirmed yesterday', detail: 'Louise led with 8 and a +0.34 client sentiment. £4,250 in deposits landed — momentum is up.', cta: 'View the pipeline', href: '/pipeline-pulse' },
+];
 
 const toneDot: Record<string, string> = {
   good: 'bg-green-500',
@@ -218,6 +230,8 @@ export const ApcmAi: React.FC = () => {
       {refreshNote && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">{refreshNote}</div>
       )}
+
+      <ApcmAiActionBoard actions={PRIORITY_ACTIONS} onAction={(href) => navigate(href)} />
 
       {/* Digest hero */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm">

@@ -71,6 +71,8 @@ const LEADS = leadDefs.map((d, i) => {
     contact_attempts: stage.startsWith('Call-') ? Number(stage.split('-')[1]) : (status === 'Sold' ? 3 : 0),
     max_attempts: 5,
     property_value: [385000, 520000, 295000, 610000, 450000, 270000, 335000, 480000, 410000, 560000, 300000, 625000, 280000, 470000, 515000, 340000][i],
+    property_tenure: i % 3 === 0 ? 'Leasehold' : 'Freehold',
+    is_mortgaged: i % 4 !== 0,
     property_address: (i * 7 + 3) + ' High Street',
     property_region: 'England', property_postcode: 'M1 ' + (i + 1) + 'BT',
     where_things_up_to: ['Offer accepted (sale)', 'Just researching prices', 'Memorandum of sale received', 'Found a property', 'Awaiting mortgage offer', 'Ready to proceed'][i % 6],
@@ -271,6 +273,147 @@ export const OVERVIEW_REPORT = {
   paymentsByStatus: [{ status: 'Paid', count: _paid }, { status: 'Pending', count: 1 }, { status: 'Overdue', count: 1 }],
 };
 
+/* ----------------------- pipeline pulse (leads landing) ----------------------- */
+export const PIPELINE_PULSE = {
+  spread: {
+    total: 139,
+    segments: [
+      { label: 'New', count: 46, color: '#3b82f6' },
+      { label: 'Contacted', count: 48, color: '#f59e0b' },
+      { label: 'Qualified', count: 29, color: '#8b5cf6' },
+      { label: 'Instructed', count: 16, color: '#22c55e' },
+    ],
+  },
+  hot: { title: 'Hot leads', total: 30, segments: [{ label: 'Qualified', count: 24, tone: 'bad' }, { label: 'Instructed', count: 6, tone: 'good' }] },
+  otherActive: { title: 'Other active', total: 35, segments: [{ label: 'Warm', count: 4 }, { label: 'Lukewarm', count: 16 }, { label: 'Cold', count: 6 }, { label: 'Unset', count: 9 }] },
+  overdue: { title: 'Overdue by', total: 69, segments: [{ label: '1–3 days', count: 10, tone: 'warn' }, { label: '3+ days', count: 59, tone: 'bad' }] },
+  funnel: [
+    { stage: 'New', count: 46, movement: 0 },
+    { stage: 'Attempting', count: 12, movement: 3 },
+    { stage: 'Contacted', count: 48, movement: 0 },
+    { stage: 'Qualified', count: 29, movement: 2 },
+    { stage: 'Following up', count: 14, movement: 1 },
+    { stage: 'Quote pending', count: 9, movement: 0 },
+    { stage: 'Instructed', count: 16, movement: 2 },
+  ],
+  recentCalls: [
+    { party: 'Stuart Robinson', summary: 'Qualification call for a flat sale. Property on the market, meeting the agent next week; wants a quote to compare.', outcome: 'connected', when: '8m' },
+    { party: 'Patricia Parker', summary: 'Client confirmed commitment to instruct. Walked through the leasehold management-pack requirement.', outcome: 'connected', when: '1h' },
+    { party: '+447902140017', summary: 'Inbound call reached voicemail — no client contact established.', outcome: 'voicemail', when: '2h' },
+    { party: 'Jacqui Reading', summary: 'Outbound call; forwarded and did not connect.', outcome: 'no_answer', when: '2h' },
+    { party: 'Martin Hewitt', summary: 'Voicemail left requesting a callback on the remortgage quote.', outcome: 'voicemail', when: '3h' },
+  ],
+  recentDeposits: [
+    { name: 'Maxine Howell', ref: 'ML-260616-MX3UA', amount: 250, status: 'Onboarding sent', when: '1d' },
+    { name: 'Kerry Wilson', ref: 'ML-260615-KWGS0', amount: 250, status: 'Onboarding sent', when: '2d' },
+    { name: 'Patricia Parker', ref: 'ML-260616-PP9NM', amount: 250, status: 'Onboarding sent', when: '2d' },
+    { name: 'Tricia Rose', ref: 'ML-260615-TR69C', amount: 250, status: 'Instructed', when: '2d' },
+    { name: 'Martin Hewitt', ref: 'ML-260615-MHWTM', amount: 150, status: 'Deposit made', when: '4d' },
+    { name: 'Janice Chown', ref: 'ML-260609-JCKQE', amount: 250, status: 'Instructed', when: '10 Jun' },
+  ],
+  chips: [
+    { key: 'all', label: 'All', count: 139 },
+    { key: 'hot', label: 'Hot', count: 30 },
+    { key: 'decision-today', label: 'Decision today', count: 4 },
+    { key: 'quoted-no-touch', label: 'Quoted · no touch', count: 27 },
+    { key: 'stalled', label: 'Stalled 7d+', count: 58 },
+    { key: 'just-instructed', label: 'Just instructed', count: 8 },
+    { key: 'lost-30d', label: 'Lost · 30d', count: 16 },
+    { key: 'mine', label: 'Mine', count: 0 },
+  ],
+};
+
+/* ----------------------- daily pipeline (agent worklist) ----------------------- */
+const DAILY_PIPELINE = {
+  hero: [
+    { key: 'overdue', label: 'Overdue', value: '12', tone: 'bad', href: '/diary' },
+    { key: 'due', label: 'Due now', value: '8', tone: 'warn', href: '/diary' },
+    { key: 'upcoming', label: 'Upcoming', value: '19', tone: 'good', href: '/diary' },
+    { key: 'new', label: 'New leads today', value: '6', tone: 'info', href: '/pipeline-pulse' },
+    { key: 'hot', label: 'Hot leads', value: '30', tone: 'bad', href: '/lead-management?pulse=hot' },
+    { key: 'quota', label: 'Quota left', value: '14 / 40', tone: 'info', href: '' },
+  ],
+  tasks: [
+    { lead: 'Bola Adeyemi', meta: 'Call · 10:30', note: 'Chase signed quote — callback promised today.', tone: 'bad' },
+    { lead: 'Folake Bello', meta: 'Email · 11:00', note: 'Send leasehold management-pack request.', tone: 'warn' },
+    { lead: 'Chidi Okeke', meta: 'Call · 14:00', note: 'Remortgage quote follow-up.', tone: 'good' },
+    { lead: 'Gbenga Ade', meta: 'Call · 15:30', note: 'First qualification call.', tone: 'good' },
+  ],
+  callbacks: [
+    { lead: 'Karen Howe', meta: 'Promised Thu', note: 'Call back Thursday for a decision.', tone: 'bad' },
+    { lead: 'Yvonne Akinyi', meta: 'Later today', note: 'Comparing quotes — intends to instruct.', tone: 'warn' },
+    { lead: 'Norman Smith', meta: '15 Jun', note: 'Offer accepted £270k — prefers email first.', tone: 'warn' },
+  ],
+  quoteResponses: [
+    { lead: 'Debbie Taylor', meta: '£789 · sent 4d ago', note: 'No-estate-agent purchase £525k.', tone: 'warn' },
+    { lead: 'Ryan Darlaston', meta: '£410 · sent 5d ago', note: 'Comparing quotes across firms.', tone: 'bad' },
+    { lead: 'Julie Robinson', meta: '£160 · sent 2d ago', note: 'Ltd-company freehold sale.', tone: 'good' },
+  ],
+};
+
+/* ----------------------------- finance hub ----------------------------- */
+const FINANCE_OVERVIEW = {
+  kpis: [
+    { label: 'Quoted (live)', value: '£48,250', sub: '31 quotes sent', tone: 'info' },
+    { label: 'Accepted', value: '£12,400', sub: '8 this month', tone: 'good' },
+    { label: 'Awaiting payment', value: '£3,150', sub: '6 invoices', tone: 'warn' },
+    { label: 'Overdue', value: '£900', sub: '2 invoices', tone: 'bad' },
+    { label: 'Revenue (June)', value: '£9,840', sub: '17 instructions', tone: 'good' },
+  ],
+  recentQuotes: [
+    { name: 'Folake Bello', amount: 2150, status: 'Accepted', when: '1d' },
+    { name: 'Bola Adeyemi', amount: 1486, status: 'Accepted', when: '2d' },
+    { name: 'Chidi Okeke', amount: 980, status: 'Sent', when: '2d' },
+    { name: 'Debbie Taylor', amount: 789, status: 'Sent', when: '4d' },
+    { name: 'Ryan Darlaston', amount: 410, status: 'Sent', when: '5d' },
+  ],
+  recentInvoices: [
+    { name: 'Maxine Howell', amount: 250, status: 'Paid', when: '1d' },
+    { name: 'Tricia Rose', amount: 250, status: 'Paid', when: '2d' },
+    { name: 'Janice Chown', amount: 250, status: 'Paid', when: '10 Jun' },
+    { name: 'Daniel Kilev', amount: 250, status: 'Pending', when: '3d' },
+    { name: 'Barry Pudney', amount: 50, status: 'Overdue', when: '12 Jun' },
+  ],
+  aging: [
+    { bucket: 'Current', amount: 1500, tone: 'good' },
+    { bucket: '1–30d', amount: 900, tone: 'warn' },
+    { bucket: '31–60d', amount: 450, tone: 'warn' },
+    { bucket: '60d+', amount: 900, tone: 'bad' },
+  ],
+};
+
+/* ------------------- matters (post-instruction cases · Hoowla in ty) ------------------- */
+const MATTER_STAGES = ['Instructed', 'Searches', 'Enquiries', 'Mortgage', 'Exchange', 'Completion'];
+const MATTERS = {
+  stats: [
+    { key: 'active', label: 'Active matters', value: '34', tone: 'info', href: '' },
+    { key: 'completing', label: 'Completing this month', value: '7', tone: 'good', href: '' },
+    { key: 'needs', label: 'Needs action', value: '9', tone: 'bad', href: '' },
+    { key: 'avg', label: 'Avg days to completion', value: '72', tone: 'info', href: '' },
+  ],
+  stages: MATTER_STAGES,
+  distribution: [
+    { stage: 'Instructed', count: 8 },
+    { stage: 'Searches', count: 7 },
+    { stage: 'Enquiries', count: 9 },
+    { stage: 'Mortgage', count: 4 },
+    { stage: 'Exchange', count: 3 },
+    { stage: 'Completion', count: 3 },
+  ],
+  matters: [
+    { client: 'Patricia Parker', ref: 'ML-260616-PP', txn: 'Purchase', value: 610000, stage: 0, status: 'needs_action', days: 6, next: 'ID/AML outstanding — chase client', firm: 'Millennium Legal' },
+    { client: 'Bola Adeyemi', ref: 'ML-260616-BA', txn: 'Purchase', value: 385000, stage: 1, status: 'on_track', days: 4, next: 'Searches ordered — awaiting results', firm: 'Millennium Legal' },
+    { client: 'Norman Smith', ref: 'ML-260525-NS', txn: 'Purchase', value: 270000, stage: 1, status: 'on_track', days: 5, next: 'Local search returned — reviewing', firm: 'Millennium Legal' },
+    { client: 'Folake Bello', ref: 'ML-260616-FB', txn: 'Sale & Purchase', value: 410000, stage: 2, status: 'needs_action', days: 11, next: 'Chase outstanding enquiries from buyer side', firm: 'Millennium Legal' },
+    { client: 'Maxine Howell', ref: 'ML-260616-MH', txn: 'Sale & Purchase', value: 515000, stage: 2, status: 'on_track', days: 7, next: 'Enquiries raised with seller', firm: 'Millennium Legal' },
+    { client: 'Daniel Kilev', ref: 'ML-260608-DK', txn: 'Purchase', value: 470000, stage: 3, status: 'stalled', days: 21, next: 'Mortgage offer delayed — chase broker', firm: 'Millennium Legal' },
+    { client: 'Ryan Darlaston', ref: 'ML-260520-RD', txn: 'Sale', value: 400000, stage: 3, status: 'on_track', days: 6, next: 'Mortgage offer received', firm: 'Millennium Legal' },
+    { client: 'Tricia Rose', ref: 'ML-260615-TR', txn: 'Remortgage', value: 295000, stage: 4, status: 'on_track', days: 3, next: 'Exchange target Friday', firm: 'Millennium Legal' },
+    { client: 'Karen Howe', ref: 'ML-260602-KH', txn: 'Sale', value: 140000, stage: 4, status: 'needs_action', days: 9, next: 'Buyer slow to exchange — push', firm: 'Millennium Legal' },
+    { client: 'Janice Chown', ref: 'ML-260609-JC', txn: 'Sale', value: 280000, stage: 5, status: 'on_track', days: 2, next: 'Completion booked Monday', firm: 'Millennium Legal' },
+  ],
+};
+
 /* ----------------------------- TABLES ---------------------------- */
 export const TABLES = {
   users: USERS,
@@ -325,23 +468,169 @@ function quotaOverview() {
     };
   });
 }
+/* --------------------- call analysis (3CX) --------------------- */
+// Differentiated conveyancing sales reps (index 0 = strongest) so the league
+// table, per-rep cards, coaching score and speed-to-lead traffic-lights all
+// have a real spread to render. Cycles if there are more than 5 demo agents.
+const CALL_REP_PROFILES = [
+  { calls: 84, ansRate: 0.79, leads: 38, contactRate: 0.74, instr: 8, c2i: 0.30, speedH: 1.8, att1: 38, att2: 26, att3: 20, attPerLead: 3.2, intent: 16, obj: 12, pos: 26, hot: 5 },
+  { calls: 76, ansRate: 0.71, leads: 33, contactRate: 0.64, instr: 6, c2i: 0.24, speedH: 5.5, att1: 33, att2: 24, att3: 19, attPerLead: 4.1, intent: 11, obj: 20, pos: 16, hot: 3 },
+  { calls: 58, ansRate: 0.62, leads: 27, contactRate: 0.55, instr: 3, c2i: 0.18, speedH: 12.5, att1: 27, att2: 17, att3: 14, attPerLead: 2.0, intent: 5, obj: 22, pos: 9, hot: 2 },
+  { calls: 47, ansRate: 0.66, leads: 22, contactRate: 0.59, instr: 3, c2i: 0.21, speedH: 8.2, att1: 22, att2: 14, att3: 11, attPerLead: 2.3, intent: 6, obj: 15, pos: 11, hot: 2 },
+  { calls: 34, ansRate: 0.58, leads: 18, contactRate: 0.50, instr: 2, c2i: 0.16, speedH: 15.2, att1: 18, att2: 9, att3: 7, attPerLead: 1.9, intent: 3, obj: 12, pos: 6, hot: 1 },
+];
+const CALL_AGENT_BREAKDOWN = AGENTS.map((a, i) => {
+  const p = CALL_REP_PROFILES[i % CALL_REP_PROFILES.length];
+  const answered = Math.round(p.calls * p.ansRate);
+  const voicemail = Math.round(p.calls * 0.18);
+  const missed = Math.max(p.calls - answered - voicemail, 0);
+  const contacted = Math.round(p.leads * p.contactRate);
+  return {
+    agent_user_id: a.id, agent_name: a.name, agent_extension: String(201 + i),
+    total_calls: p.calls, answered_calls: answered, voicemail_calls: voicemail, missed_abandoned_calls: missed,
+    outbound_calls: p.calls, outbound_answered_calls: answered, outbound_voicemail_calls: voicemail,
+    outbound_answer_rate: Math.round(p.ansRate * 100),
+    unique_leads_attempted: p.leads, unique_leads_contacted: contacted, contact_rate: Math.round(p.contactRate * 100),
+    official_instructions: p.instr, crm_instructions: p.instr,
+    contact_to_instruction_rate: Math.round(p.c2i * 100), call_to_instruction_rate: Number(((p.instr / p.calls) * 100).toFixed(1)),
+    inbound_hot_calls: p.hot,
+    outbound_attempt_1_calls: p.att1, outbound_attempt_2_calls: p.att2, outbound_attempt_3_plus_calls: p.att3,
+    outbound_attempts_per_lead: p.attPerLead,
+    average_first_outbound_delay_seconds: Math.round(p.speedH * 3600),
+    op1_calls: p.att1,
+    follow_up_needed: Math.round(p.leads * 0.4),
+    instruction_intent: p.intent, any_objection: p.obj, positive_signals: p.pos,
+  };
+});
+const callSum = (k) => CALL_AGENT_BREAKDOWN.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+const callWeightedSpeed = () => {
+  const calls = callSum('total_calls');
+  if (!calls) return 0;
+  return Math.round(CALL_AGENT_BREAKDOWN.reduce((s, r) => s + r.average_first_outbound_delay_seconds * r.total_calls, 0) / calls);
+};
+
+// Per-rep call-quality tier mix + average client sentiment (AI-derived in ty; mocked here).
+// Indexed to AGENTS so it lines up with CALL_AGENT_BREAKDOWN (Louise strong -> James weak).
+const CALL_REP_QUALITY_PROFILES = [
+  { excellent: 28, good: 34, meetsFloor: 16, belowFloor: 6, sentiment: 0.34, conversion: 58, coachingTrend: [70, 72, 71, 74, 76, 77, 78] },
+  { excellent: 14, good: 30, meetsFloor: 22, belowFloor: 10, sentiment: 0.08, conversion: 41, coachingTrend: [66, 65, 64, 63, 64, 62, 63] },
+  { excellent: 6, good: 18, meetsFloor: 20, belowFloor: 14, sentiment: -0.12, conversion: 27, coachingTrend: [59, 56, 55, 53, 52, 51, 50] },
+  { excellent: 10, good: 22, meetsFloor: 18, belowFloor: 9, sentiment: 0.05, conversion: 38, coachingTrend: [60, 61, 60, 62, 61, 63, 62] },
+  { excellent: 5, good: 14, meetsFloor: 16, belowFloor: 11, sentiment: -0.04, conversion: 24, coachingTrend: [48, 47, 49, 46, 47, 45, 46] },
+];
+const CALL_REP_QUALITY = AGENTS.map((a, i) => {
+  const p = CALL_REP_QUALITY_PROFILES[i % CALL_REP_QUALITY_PROFILES.length];
+  return { agent_user_id: a.id, agent_name: a.name, excellent: p.excellent, good: p.good, meets_floor: p.meetsFloor, below_floor: p.belowFloor, sentiment_score: p.sentiment, conversion_rate: p.conversion, coaching_trend: p.coachingTrend };
+});
+
+// Call volume by hour (business hours). Outbound dialling peaks mid-morning + early afternoon.
+const CALL_HOURLY = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map((hour) => {
+  const outbound = { 8: 14, 9: 31, 10: 42, 11: 38, 12: 19, 13: 22, 14: 36, 15: 33, 16: 27, 17: 12 };
+  const inbound = { 8: 4, 9: 9, 10: 14, 11: 16, 12: 7, 13: 6, 14: 11, 15: 9, 16: 8, 17: 5 };
+  return { hour, outbound: outbound[hour], inbound: inbound[hour] };
+});
+
+// Callback / follow-up load by day.
+const CALL_SCHEDULE_LOAD = [
+  { label: 'Overdue', count: 38, tone: 'bad' },
+  { label: 'Today', count: 24, tone: 'warn' },
+  { label: 'Tomorrow', count: 18, tone: 'good' },
+  { label: '+2d', count: 13, tone: 'good' },
+  { label: '+3d', count: 9, tone: 'good' },
+  { label: '+4d', count: 6, tone: 'good' },
+];
+
+// Objection handling: per-category quality split (STRONG/ADEQUATE/WEAK), a representative
+// client quote, and the exact graded exchanges for the drill panel (AI-derived in ty).
+const CALL_OBJECTION_HANDLING = [
+  { category: 'Comparing Quotes', count: 28, strong: 7, adequate: 9, weak: 12, quote: "Your quote is £300 more than the firm down the road.", instances: [
+    { rep: 'James Okoro', client: 'G. Ade', quality: 'WEAK', client_said: "I've had a cheaper quote elsewhere, why should I pay more?", rep_replied: "Okay, I can ask if we're able to match it.", reaction: 'pushed_back' },
+    { rep: 'Sarah Okafor', client: 'C. Okeke', quality: 'ADEQUATE', client_said: "The other firm is a bit cheaper.", rep_replied: "We're fully transparent on fees with no surprise costs later, which often works out cheaper overall.", reaction: 'neutral' },
+    { rep: 'Louise Forshaw', client: 'B. Adeyemi', quality: 'STRONG', client_said: "I'm comparing a few quotes.", rep_replied: "Of course — what matters most, the headline price or reaching completion without delays? Our no-completion-no-fee protects you either way.", reaction: 'positive' },
+  ] },
+  { category: 'Online Firm Hesitation', count: 16, strong: 3, adequate: 5, weak: 8, quote: "I'd rather use a local high-street solicitor I can walk into.", instances: [
+    { rep: 'James Okoro', client: 'A. Bello', quality: 'WEAK', client_said: "I don't really trust online conveyancers.", rep_replied: "We are online though, so that's just how we work.", reaction: 'pushed_back' },
+    { rep: 'Louise Forshaw', client: 'F. Bello', quality: 'STRONG', client_said: "I prefer someone local I can pop in to see.", rep_replied: "Understandable — we're SRA-regulated and you get one named handler on their direct line, so you actually reach the same person faster than a high-street queue.", reaction: 'positive' },
+  ] },
+  { category: 'Timing Not Ready', count: 19, strong: 8, adequate: 7, weak: 4, quote: "We haven't had an offer accepted yet.", instances: [
+    { rep: 'Sarah Okafor', client: 'A. Bello', quality: 'ADEQUATE', client_said: "We're not ready, still house-hunting.", rep_replied: "No problem, I'll give you a call back next week.", reaction: 'neutral' },
+    { rep: 'Louise Forshaw', client: 'G. Ade', quality: 'STRONG', client_said: "Too early, the offer isn't in.", rep_replied: "Smart to line it up now — I can hold today's quote for 30 days so you're ready the moment it's accepted.", reaction: 'positive' },
+  ] },
+  { category: 'Local Firm Preference', count: 22, strong: 6, adequate: 9, weak: 7, quote: "My estate agent recommended their in-house solicitor.", instances: [
+    { rep: 'Sarah Okafor', client: 'C. Okeke', quality: 'ADEQUATE', client_said: "The agent suggested their own solicitor.", rep_replied: "You're free to choose your own — I can send a quote so you can compare.", reaction: 'neutral' },
+  ] },
+  { category: 'Price', count: 24, strong: 9, adequate: 9, weak: 6, quote: "That's more than I budgeted for.", instances: [
+    { rep: 'Louise Forshaw', client: 'B. Adeyemi', quality: 'STRONG', client_said: "It's a bit more than I'd hoped.", rep_replied: "I hear you — that figure is all-in with no add-ons later. Shall I break down exactly what's included?", reaction: 'positive' },
+  ] },
+  { category: 'Process Uncertainty', count: 13, strong: 5, adequate: 5, weak: 3, quote: "I don't really understand how conveyancing works.", instances: [
+    { rep: 'Sarah Okafor', client: 'A. Bello', quality: 'STRONG', client_said: "This is my first purchase, I'm a bit lost.", rep_replied: "Totally normal — I'll send a simple step-by-step and you'll get a text update at each stage.", reaction: 'positive' },
+  ] },
+  { category: 'Speed Urgency', count: 9, strong: 4, adequate: 3, weak: 2, quote: "I need to complete before the end of next month.", instances: [
+    { rep: 'Louise Forshaw', client: 'F. Bello', quality: 'STRONG', client_said: "Can you complete quickly? I'm on a deadline.", rep_replied: "Yes — if we instruct today I'll open the file immediately and order searches up front.", reaction: 'positive' },
+  ] },
+  { category: 'Trust Verification', count: 7, strong: 3, adequate: 3, weak: 1, quote: "How do I know you're a legitimate firm?", instances: [
+    { rep: 'Louise Forshaw', client: 'C. Okeke', quality: 'STRONG', client_said: "How do I know you're a real firm?", rep_replied: "You can verify us on the SRA register — I'll text you the link and our firm number now.", reaction: 'positive' },
+  ] },
+];
+
 export const RPC = {
   get_agent_quota_overview: () => quotaOverview(),
   get_comparison_lead_stats: () => ({ total: COMPARISON_LEADS.length, today: COMPARISON_LEADS.filter((c) => c.created_at >= todayMid).length, quoted: COMPARISON_LEADS.filter((c) => c.status === 'quoted').length, new: COMPARISON_LEADS.filter((c) => c.status === 'new').length, new_count: COMPARISON_LEADS.filter((c) => c.status === 'new').length, callbacks: COMPARISON_LEADS.filter((c) => c.quote_breakdown && c.quote_breakdown.callbackRequested).length, instructions: 3, sold: COMPARISON_LEADS.filter((c) => c.status === 'sold').length }),
   count_today_appearances_by_firm: () => SOLICITOR_FIRMS.map((f, i) => ({ firm_id: f.id, appearance_count: 30 + i * 7 })),
   get_overview_report: () => OVERVIEW_REPORT,
+  get_pipeline_pulse: () => PIPELINE_PULSE,
+  get_daily_pipeline: () => DAILY_PIPELINE,
+  get_finance_overview: () => FINANCE_OVERVIEW,
+  get_matters: () => MATTERS,
   get_lead_quality_breakdown: () => [],
   get_disqualified_breakdown: () => [{ source: 'Comparison Site', total: 12, fake: 4, duplicate: 3, wrong_number: 5 }, { source: 'Hoowla', total: 6, fake: 2, duplicate: 2, wrong_number: 2 }],
   get_instruction_report_summary: () => ({ total_instructions: 47, agents_credited: 5, todays_instructions: 7, missing_attribution: 10, leads_created: 342, conversion: 13.7 }),
   get_instruction_report_breakdowns: () => ({ by_agent: AGENTS.map((a, i) => ({ value: a.name, count: 12 - i * 2, conversion: 18 - i })), by_source: [{ value: 'Comparison Site', count: 31, conversion: 16.6 }], by_utm_source: [{ value: 'google', count: 28, conversion: 15.1 }], by_campaign: [{ value: 'Conveyancing-Brand', count: 19, conversion: 18.2 }], by_keyword: [{ value: 'house sale solicitor', count: 8, conversion: 21 }] }),
   get_instruction_report_leads: () => LEADS.slice(0, 6).map((l) => ({ id: l.id, name: l.name, email: l.email, instruction_date: iso(0).slice(0, 10), credited_agent: l.assigned_to_name, source: l.source, status: l.status, stage: l.stage, instruction_units: 1 })),
   get_instruction_report_export: () => [],
-  get_call_analysis_summary: () => ({ calls_made: 143, conversations: 86, leads_reached: 64, likely_to_instruct: 12, instructions: 7, speed_to_lead_seconds: 492 }),
+  get_call_analysis_summary: () => ({ calls_made: callSum('total_calls'), conversations: callSum('answered_calls'), leads_reached: callSum('unique_leads_contacted'), likely_to_instruct: callSum('instruction_intent'), instructions: callSum('official_instructions'), speed_to_lead_seconds: callWeightedSpeed() }),
   get_call_analysis_rows: () => CRM_CALL_RECORDS,
   get_call_analysis_export: () => [],
-  get_call_daily_overview: () => Array.from({ length: 7 }).map((_, i) => ({ day: iso(6 - i).slice(0, 10), calls: 100 + i * 8, conversations: 60 + i * 5, instructions: 1 + (i % 3) })),
-  get_call_agent_daily_breakdown: () => AGENTS.map((a, i) => ({ agent_id: a.id, agent_name: a.name, calls: 34 - i * 4, conversations: 22 - i * 3, reached: 16 - i * 2, instructions: 4 - Math.min(i, 3), avg_score: 88 - i * 5 })),
-  get_call_signal_breakdowns: () => [],
+  get_call_daily_overview: () => [{
+    total_calls: callSum('total_calls'), answered_calls: callSum('answered_calls'),
+    voicemail_calls: callSum('voicemail_calls'), missed_abandoned_calls: callSum('missed_abandoned_calls'),
+    outbound_calls: callSum('outbound_calls'), outbound_answered_calls: callSum('outbound_answered_calls'),
+    outbound_voicemail_calls: callSum('voicemail_calls'),
+    outbound_answer_rate: Math.round((callSum('answered_calls') / Math.max(callSum('total_calls'), 1)) * 100),
+    unique_leads_attempted: callSum('unique_leads_attempted'), unique_leads_contacted: callSum('unique_leads_contacted'),
+    contact_rate: Math.round((callSum('unique_leads_contacted') / Math.max(callSum('unique_leads_attempted'), 1)) * 100),
+    official_instructions: callSum('official_instructions'),
+    contact_to_instruction_rate: Math.round((callSum('official_instructions') / Math.max(callSum('unique_leads_contacted'), 1)) * 100),
+    outbound_attempt_1_calls: callSum('outbound_attempt_1_calls'), outbound_attempt_2_calls: callSum('outbound_attempt_2_calls'),
+    outbound_attempt_3_plus_calls: callSum('outbound_attempt_3_plus_calls'),
+    inbound_hot_calls: callSum('inbound_hot_calls'), possible_hot_calls: 9,
+    outbound_attempts_per_lead: Number((callSum('outbound_calls') / Math.max(callSum('unique_leads_attempted'), 1)).toFixed(2)),
+    average_first_outbound_delay_seconds: callWeightedSpeed(), average_duration_seconds: 168,
+    transcripts_received: callSum('answered_calls'), ai_analysed: Math.round(callSum('answered_calls') * 0.92),
+    pending_ai: Math.round(callSum('answered_calls') * 0.08), matched_leads: callSum('unique_leads_contacted'), unmatched_or_ambiguous: 6,
+    follow_up_needed: callSum('follow_up_needed'), instruction_intent: callSum('instruction_intent'),
+    any_objection: callSum('any_objection'), has_positive_signal: callSum('positive_signals'),
+    price_concerns: 24, usp_mentions: 21, op1_calls: callSum('op1_calls'),
+  }],
+  get_call_agent_daily_breakdown: () => CALL_AGENT_BREAKDOWN,
+  get_call_signal_breakdowns: () => [
+    { signal_type: 'objection', signal_value: 'Comparing Quotes', calls_count: 28 },
+    { signal_type: 'objection', signal_value: 'Price', calls_count: 24 },
+    { signal_type: 'objection', signal_value: 'Local Firm Preference', calls_count: 22 },
+    { signal_type: 'objection', signal_value: 'Timing Not Ready', calls_count: 19 },
+    { signal_type: 'objection', signal_value: 'Online Firm Hesitation', calls_count: 16 },
+    { signal_type: 'objection', signal_value: 'Process Uncertainty', calls_count: 13 },
+    { signal_type: 'objection', signal_value: 'Speed Urgency', calls_count: 9 },
+    { signal_type: 'objection', signal_value: 'Trust Verification', calls_count: 7 },
+    { signal_type: 'positive', signal_value: 'Ready to instruct', calls_count: 18 },
+    { signal_type: 'positive', signal_value: 'Happy with quote', calls_count: 15 },
+    { signal_type: 'usp', signal_value: 'No-completion-no-fee', calls_count: 12 },
+    { signal_type: 'usp', signal_value: 'Local & accredited', calls_count: 9 },
+  ],
+  get_call_rep_quality: () => CALL_REP_QUALITY,
+  get_call_hourly_volume: () => CALL_HOURLY,
+  get_call_schedule_load: () => CALL_SCHEDULE_LOAD,
+  get_call_objection_handling: () => CALL_OBJECTION_HANDLING,
   archive_leads_for_funnel: () => ({ archived: 0 }),
   restore_funnel_archived_leads: () => ({ restored: 0 }),
   mark_lead_instructed: () => ({ success: true }),
