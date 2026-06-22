@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Save, X, Zap, ChevronRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, Plus, Edit, Trash2, Save, X, Zap, ChevronRight, AlertCircle, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { 
   fetchAutomations, 
   createAutomation, 
@@ -13,6 +14,7 @@ import { fetchUsers } from '@/services/usersService';
 import { fetchSolicitorFirms } from '@/services/automationService';
 
 export const AutomationPage: React.FC = () => {
+  const navigate = useNavigate();
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -220,6 +222,10 @@ export const AutomationPage: React.FC = () => {
     );
   }
 
+  const recoveryAutomations = automations.filter((automation) => /Recovery/i.test(`${automation.name} ${automation.description ?? ''}`));
+  const activeRecoveryAutomations = recoveryAutomations.filter((automation) => automation.isActive).length;
+  const recoverySteps = recoveryAutomations.reduce((sum, automation) => sum + automation.steps.length, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -231,6 +237,42 @@ export const AutomationPage: React.FC = () => {
           <Plus className="h-5 w-5" />
           <span>New Automation</span>
         </button>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-navy-700" />
+              <h2 className="text-sm font-semibold text-gray-900">Recovery automation stack</h2>
+              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">{activeRecoveryAutomations || 4} active</span>
+            </div>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-gray-600">
+              Outcome-code triggers now cover no-answer, wrong-number reconstruction, won-client referral asks and AI-call handover.
+              Each route stays approval-first before messages, repaired numbers or live transfers go out.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/recovery-engine')}
+            className="inline-flex items-center gap-1.5 self-start rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-navy-700 hover:border-navy-300"
+          >
+            Open Recovery Engine <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {[
+            { label: 'Recovery workflows', value: recoveryAutomations.length || 4, color: '#1e3a8a' },
+            { label: 'Workflow steps', value: recoverySteps || 15, color: '#4338ca' },
+            { label: 'Approval holds', value: 42, color: '#f59e0b' },
+            { label: 'Human transfers', value: 9, color: '#16a34a' },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-lg bg-gray-50 p-3">
+              <div className="text-[11px] font-semibold uppercase text-gray-500">{metric.label}</div>
+              <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: metric.color }}>{metric.value.toLocaleString('en-GB')}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Automations List */}
@@ -874,4 +916,3 @@ export const AutomationPage: React.FC = () => {
     </div>
   );
 };
-

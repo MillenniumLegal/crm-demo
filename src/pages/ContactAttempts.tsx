@@ -847,7 +847,7 @@ export const ContactAttempts: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Contact Attempts</h1>
-          <p className="text-gray-600">Track and manage lead contact attempts</p>
+          <p className="text-gray-600">Track attempts, then route failed/no-answer contact paths into recovery.</p>
         </div>
         <div className="flex space-x-3">
           <button 
@@ -866,6 +866,52 @@ export const ContactAttempts: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {canViewCallIntelligence && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <h2 className="text-sm font-semibold text-gray-900">Recovery Engine handoff</h2>
+              </div>
+              <p className="mt-0.5 text-sm text-gray-500">
+                Failed calls, repeated no-answer, wrong numbers and stale email/SMS attempts can feed AI reconstruction and soft re-engagement tasks.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/recovery-engine')}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#011E41] px-3 py-2 text-sm font-semibold text-white hover:bg-[#022a5c]"
+            >
+              <Search className="h-4 w-4" />
+              Open Recovery Engine
+            </button>
+          </div>
+          <div className="mt-4 grid gap-2 md:grid-cols-4">
+            {[
+              { label: 'No-answer loop', value: '88', detail: 'eligible for softer drip', color: '#f59e0b' },
+              { label: 'Wrong / invalid number', value: '53', detail: 'AI contact repair', color: '#ef4444' },
+              { label: 'Quote no-touch', value: '27', detail: 'agent task candidates', color: '#4338ca' },
+              { label: 'Won-client referrals', value: '54', detail: 'brand-safe outreach', color: '#16a34a' },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => navigate('/recovery-engine')}
+                className="rounded-lg bg-gray-50 p-3 text-left transition-colors hover:bg-gray-100"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-semibold uppercase text-gray-500">{item.label}</div>
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                </div>
+                <div className="mt-1 text-2xl font-bold tabular-nums text-gray-900">{item.value}</div>
+                <div className="text-xs text-gray-500">{item.detail}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">

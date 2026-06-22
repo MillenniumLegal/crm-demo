@@ -53,6 +53,13 @@ const PAGE_MAP: PageEntry[] = [
     prompts: ["What can we recover today?", "What is at risk?", "Upsell ideas?"],
   },
   {
+    match: "/recovery-engine",
+    name: "Recovery Engine",
+    opener:
+      "£148.6k is sitting in old, lost, wrong-number and won-client recovery queues. Start with quoted-no-touch before scaling AI drips.",
+    prompts: ["Which cohort should we work first?", "Show risky outreach", "Who has capacity today?"],
+  },
+  {
     match: "/matter-progression",
     name: "Matter Progression",
     opener:

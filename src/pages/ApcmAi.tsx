@@ -30,6 +30,8 @@ const WATCHING: { label: string; value: string; tone: keyof typeof toneText }[] 
   { label: 'Lowest coaching score', value: 'James · 50', tone: 'bad' },
   { label: 'Objection rising', value: 'Comparing Quotes', tone: 'warn' },
   { label: 'Callbacks overdue', value: '69', tone: 'bad' },
+  { label: 'Recovery value', value: '£148.6k', tone: 'good' },
+  { label: 'Contact repairs', value: '42 approvals', tone: 'warn' },
 ];
 
 // Curated demo actions; in ty computed from live signals.
@@ -38,6 +40,7 @@ const PRIORITY_ACTIONS: ApcmAiAction[] = [
   { severity: 'high', icon: 'coaching', title: 'James Okoro dropped to a 50 coaching score', detail: 'Needs coaching: 12h speed-to-lead and weak objection handling. Listen to a couple of his calls today.', cta: 'Open his calls', href: '/call-analysis' },
   { severity: 'med', icon: 'objection', title: 'Comparing Quotes handled well only 25%', detail: '28 calls this week, our worst-handled objection. Run a quick huddle on value framing versus price.', cta: 'See the exchanges', href: '/call-analysis' },
   { severity: 'med', icon: 'callback', title: '69 callbacks overdue, 59 over 3 days', detail: 'Promised callbacks are slipping. Each missed one risks a lost instruction; clear the oldest first.', cta: 'Open the diary', href: '/diary' },
+  { severity: 'med', icon: 'flame', title: '£148.6k sitting in Recovery Engine', detail: 'Old not-interested, quote shoppers, wrong-number repairs and won-client referral asks are ready for approval-first outreach.', cta: 'Open Recovery Engine', href: '/recovery-engine' },
   { severity: 'med', icon: 'flame', title: '27 leads quoted with no follow-up', detail: 'Quotes sent but untouched since. A nudge now lifts conversion; prioritise the highest-value ones.', cta: 'Open quoted leads', href: '/lead-management?pulse=quoted-no-touch' },
   { severity: 'low', icon: 'win', title: '17 instructions confirmed yesterday', detail: 'Louise led with 8 and a +0.34 client sentiment. £4,250 in deposits landed — momentum is up.', cta: 'View the pipeline', href: '/pipeline-pulse' },
 ];
@@ -212,6 +215,10 @@ export const ApcmAi: React.FC = () => {
               <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-600" /> Instructions report</span>
               <ArrowRight className="h-4 w-4 text-gray-400" />
             </button>
+            <button type="button" onClick={() => navigate('/recovery-engine')} className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-900 hover:border-navy-300">
+              <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-indigo-600" /> Recovery Engine — approval-first outreach</span>
+              <ArrowRight className="h-4 w-4 text-gray-400" />
+            </button>
           </div>
         </div>
 
@@ -221,6 +228,7 @@ export const ApcmAi: React.FC = () => {
             <li>· Free-form questions over all CRM data (live wiring)</li>
             <li>· Take actions from chat — schedule callbacks, draft emails</li>
             <li>· Email deliverability — spam and bounce tracking per day</li>
+            <li>· Recovery Engine actions — approve AI drips, contact repairs and won-client referral asks</li>
             <li>· Automatic morning digest by email and SMS alerts</li>
             <li>· Weekly coaching notes per agent, written by AI</li>
           </ul>

@@ -90,7 +90,8 @@ import {
   Download,
   RotateCcw,
   RefreshCw,
-  Archive
+  Archive,
+  Sparkles
 } from 'lucide-react';
 
 const LEAD_SOURCE_OPTIONS = [
@@ -113,6 +114,15 @@ const LEAD_STATUS_OPTIONS = [
   'Closed',
   'Archived',
 ];
+
+const RECOVERY_PULSE_LABELS: Record<string, string> = {
+  'recovery-not-interested': 'Not interested revival',
+  'recovery-getting-prices': 'Getting prices follow-up',
+  'recovery-gone-elsewhere': 'Gone elsewhere win-back',
+  'recovery-wrong-number': 'Wrong-number reconstruction',
+  'recovery-quoted-no-touch': 'Quoted no-touch rescue',
+  'recovery-won-client': 'Won-client referral and repeat opportunity',
+};
 
 const AGENT_INACTIVE_STATUSES = [
   'Sold',
@@ -171,6 +181,8 @@ export const LeadManagement: React.FC = () => {
   const canViewFullAttribution = isManager;
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const recoveryPulseKey = searchParams.get('pulse') || '';
+  const recoveryPulseLabel = RECOVERY_PULSE_LABELS[recoveryPulseKey];
   const initialUrlState = useMemo(() => getInitialLeadManagementUrlState(), []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
@@ -4304,6 +4316,31 @@ const formatStatusLabel = (status: string) => {
           </button>
         </div>
       </div>
+
+      {recoveryPulseLabel && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-navy-700" />
+                <h2 className="text-sm font-semibold text-gray-900">{recoveryPulseLabel}</h2>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Recovery Engine context</span>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-gray-600">
+                This list was opened from a recovery cohort. Use it to review the lead history, contact attempts,
+                quote context and suppression risk before approving AI outreach or assigning a soft re-engagement task.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/recovery-engine')}
+              className="inline-flex items-center gap-1.5 self-start rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-navy-700 hover:border-navy-300"
+            >
+              Back to Recovery Engine
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className={`grid grid-cols-1 gap-4 ${user?.role === 'Agent' ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>

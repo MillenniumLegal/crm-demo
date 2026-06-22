@@ -11,6 +11,7 @@ import Matters from '@/pages/Matters';
 import Analytics from '@/pages/Analytics';
 import TeamPerformance from '@/pages/TeamPerformance';
 import Marketing from '@/pages/Marketing';
+import RecoveryEngine from '@/pages/RecoveryEngine';
 import Email from '@/pages/Email';
 import CallIntel from '@/pages/CallIntel';
 import MatterProgression from '@/pages/MatterProgression';
@@ -150,6 +151,16 @@ function App() {
               <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
                 <Layout>
                   <Email />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recovery-engine"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <RecoveryEngine />
                 </Layout>
               </ProtectedRoute>
             }

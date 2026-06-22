@@ -3,7 +3,8 @@
 // aging. The "what would boost financial stuffs" layer.
 
 import React, { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { fetchRevenueOpportunities, RevenueOpportunities } from '@/services/revenueOpportunitiesService';
 import { OpportunityList } from '@/components/finance/OpportunityList';
 import { RankedBarList } from '@/components/analytics/RankedBarList';
@@ -11,6 +12,7 @@ import { RankedBarList } from '@/components/analytics/RankedBarList';
 const fmtK = (n: number) => '£' + (Math.abs(n) >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n)));
 
 const RevenueBoost: React.FC = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<RevenueOpportunities | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,6 +59,42 @@ const RevenueBoost: React.FC = () => {
           <p className="text-xs text-gray-500">Lockup</p>
           <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: overLockup ? '#f59e0b' : '#16a34a' }}>{data.summary.lockupDays}d</p>
           <p className="text-xs text-gray-500">target {data.summary.lockupTarget}d</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-navy-700" />
+              <h2 className="text-sm font-semibold text-gray-900">Recovery Engine connected</h2>
+            </div>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-gray-600">
+              The cash recovery list now feeds the approval-first engine: old non-interested leads, quoted-no-touch,
+              wrong-number repairs and won-client referral opportunities are grouped with AI draft logic and agent capacity.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/recovery-engine')}
+            className="inline-flex items-center gap-1.5 self-start rounded-md px-3 py-1.5 text-sm font-medium text-white"
+            style={{ backgroundColor: '#1e3a8a' }}
+          >
+            Open engine <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {[
+            { label: 'Recoverable cash', value: fmtK(data.summary.recoverable), color: '#16a34a' },
+            { label: 'Approval queue', value: '42', color: '#f59e0b' },
+            { label: 'Contact repairs', value: '53', color: '#4338ca' },
+            { label: 'AI touches', value: '1.9k', color: '#1e3a8a' },
+          ].map((metric) => (
+            <div key={metric.label} className="rounded-lg bg-gray-50 p-3">
+              <div className="text-[11px] font-semibold uppercase text-gray-500">{metric.label}</div>
+              <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: metric.color }}>{metric.value}</div>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -1067,6 +1067,9 @@ export const Dashboard: React.FC = () => {
   const leadsDelta = stats.newLeads - previousStats.newLeads;
   const instructionsDelta = stats.instructedLeads - previousStats.instructedLeads;
   const revenueDelta = totalRevenue - previousRevenue;
+  const recoveryEligible = 486;
+  const recoveryRecovered = 37;
+  const recoveryValue = 148600;
   const assignmentPressure = Math.round((stats.unassignedLeads / Math.max(stats.newLeads + stats.unassignedLeads, 1)) * 100);
   const latestUpdate = allTodayActivity[0]?.time ?? 'No updates yet';
 
@@ -1221,6 +1224,23 @@ export const Dashboard: React.FC = () => {
         `Paid revenue is £${totalRevenue.toLocaleString()} this month against £${previousRevenue.toLocaleString()} last month.`,
         'Use this to spot when instruction gains are not translating into paid file-opening value.',
         revenueDelta >= 0 ? 0.44 : -0.31,
+      ),
+    },
+    {
+      key: 'recovery',
+      label: 'Recovery queue',
+      value: `£${recoveryValue.toLocaleString()}`,
+      sub: `${recoveryRecovered} recovered`,
+      tone: '#4338ca',
+      href: '/recovery-engine',
+      signal: makeDashboardSignal(
+        'dashboard-recovery',
+        'Recovery queue',
+        recoveryEligible,
+        [28, 31, 37, 42, 46, 51],
+        `${recoveryEligible} old, lost, wrong-number and won-client opportunities are eligible for approval-first recovery.`,
+        'Open Recovery Engine to review AI drafts, contact reconstruction, won-client referrals and free-agent task allocation before any outreach goes live.',
+        0.52,
       ),
     },
   ];
@@ -1398,7 +1418,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </button>
 
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
               {dashboardBriefingRows.map((row) => (
                 <div
                   key={row.key}

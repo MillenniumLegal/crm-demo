@@ -139,6 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       items: [
         { name: 'Marketing', href: '/marketing', icon: Megaphone, roles: ['Admin', 'Manager'] },
         { name: 'Email', href: '/email', icon: Mail, roles: ['Admin', 'Manager'] },
+        { name: 'Recovery Engine', href: '/recovery-engine', icon: Sparkles, roles: ['Admin', 'Manager'] },
         { name: 'Comparison Leads', href: '/comparison-leads', icon: GitCompareArrows, roles: ['Manager'] },
         { name: 'Forecast', href: '/forecast', icon: LineChart, roles: ['Admin', 'Manager'] },
       ],

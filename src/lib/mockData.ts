@@ -294,6 +294,10 @@ const AUTOMATIONS = [
   ['Instruction → notify manager', 'Notify manager when a lead is instructed', 'lead_status_changed', 1, false],
   ['Callback promised → schedule task', 'Create a diary task when a call-back is promised', 'outcome_code_selected', 2, true],
   ['Overdue payment → reminder', 'Send a reminder email for overdue invoices', 'payment_received', 2, false],
+  ['Recovery: Not Interested → soft drip approval', 'Draft a low-pressure re-engagement sequence for old not-interested leads', 'outcome_code_selected', 5, true],
+  ['Recovery: Wrong number → contact reconstruction', 'Check phone/email/name/IP/area-code signals and create an approval task', 'outcome_code_selected', 6, true],
+  ['Recovery: Won client → referral ask', 'Queue brand-safe referral or repeat-matter outreach after completion cooling-off window', 'custom', 4, true],
+  ['Recovery: AI call answer → transfer to human', 'When the AI call agent detects intent, create a live handover task for a free agent', 'custom', 5, true],
 ].map((a, i) => ({ id: 'auto-' + (i + 1), name: a[0], description: a[1], trigger_type: a[2], trigger_conditions: {}, steps: Array.from({ length: a[3] }).map((_, j) => ({ type: 'create_task', config: {}, order: j })), is_active: a[4], created_by: 'demo-user', created_at: iso(40 - i), updated_at: iso(1) }));
 
 /* ------------------------ firm price lists ----------------------- */
@@ -931,6 +935,194 @@ const MAIL = {
   ],
 };
 
+/* ----------------------- recovery engine — DEMO ONLY ----------------------- */
+const RECOVERY_ENGINE = {
+  range: 'Last 30 days',
+  kpis: [
+    { label: 'Recoverable value', value: '£148.6k', sub: 'approval-first queue', tone: 'good', deltaPct: 18, good: true },
+    { label: 'Eligible leads', value: '486', sub: 'old/lost/stale', tone: 'info', deltaPct: 12, good: true },
+    { label: 'AI touches', value: '1,920', sub: 'email, SMS, calls', tone: 'info', deltaPct: 24, good: true },
+    { label: 'Recovered', value: '37', sub: 'instructions/referrals', tone: 'good', deltaPct: 16, good: true },
+    { label: 'Needs approval', value: '42', sub: 'contact repairs + tasks', tone: 'warn', deltaPct: -9, good: true },
+  ],
+  trendLabels: Array.from({ length: 14 }, (_, i) => { const d = new Date(D.getTime() - (13 - i) * 86400000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }),
+  trend: {
+    eligible: [28, 31, 29, 35, 34, 37, 39, 42, 40, 45, 43, 48, 46, 51],
+    aiTouches: [88, 96, 104, 112, 118, 130, 126, 142, 151, 148, 162, 171, 168, 184],
+    replies: [9, 12, 10, 13, 14, 16, 15, 18, 19, 17, 21, 23, 22, 26],
+    recovered: [1, 2, 2, 3, 2, 4, 3, 5, 4, 4, 5, 6, 5, 7],
+  },
+  funnel: [
+    { label: 'Eligible', count: 486 },
+    { label: 'AI drafted', count: 438 },
+    { label: 'Approved', count: 312 },
+    { label: 'Delivered', count: 286 },
+    { label: 'Replied', count: 53 },
+    { label: 'Recovered', count: 37 },
+  ],
+  cohorts: [
+    {
+      key: 'not-interested',
+      label: 'Not interested',
+      reason: 'Rejected the first quote, but property timing may have changed.',
+      eligible: 126,
+      value: 38200,
+      avgAgeDays: 83,
+      aiTouches: 412,
+      replyRate: 16,
+      conversionRate: 5.8,
+      risk: 'low pressure only',
+      suppression: 18,
+      channel: 'mixed',
+      confidence: 78,
+      trend: [8, 9, 8, 11, 12, 13],
+      leads: [
+        { leadId: 'lead-16', lead: 'Tunde Bakare', agent: 'Louise Forshaw', date: '14 Jun', trigger: 'Not interested 78d ago', outcome: 'opened email, no reply', aiDraft: 'Just checking whether you still need anything conveyancing-related. If not, no problem - I can close this off properly.', nextAction: 'Approve soft email then create a 3-day call task if opened.', note: 'Keep tone low-friction; no price pressure.', value: 980 },
+        { leadId: 'lead-h14', lead: 'History Lead 15', agent: 'Dej A', date: '11 Jun', trigger: 'Price objection, no instruction elsewhere found', outcome: 'reply asked for updated fee', aiDraft: 'A lot can change with timing and lender requirements. If you still want a quick updated figure, I can get one sent over.', nextAction: 'Send updated quote prompt to agent.', note: 'AI detected "still browsing" not a firm rejection.', value: 1240 },
+      ],
+    },
+    {
+      key: 'getting-prices',
+      label: 'Getting prices',
+      reason: 'Quote shoppers often re-enter once offers, mortgage or chain pressure appears.',
+      eligible: 94,
+      value: 26800,
+      avgAgeDays: 41,
+      aiTouches: 328,
+      replyRate: 22,
+      conversionRate: 8.4,
+      risk: 'message before quote expiry',
+      suppression: 9,
+      channel: 'email',
+      confidence: 84,
+      trend: [7, 8, 9, 12, 14, 16],
+      leads: [
+        { leadId: 'lead-13', lead: 'Cecilia Cristea', agent: 'Helen Sadler', date: '18 Jun', trigger: 'Getting prices + opened quote twice', outcome: 'email opened', aiDraft: 'You may already be sorted, but if you are still comparing, I can make sure you are looking at the full cost rather than just the headline fee.', nextAction: 'Approve value-frame email.', note: 'Best cohort for helpful comparison content.', value: 1180 },
+        { leadId: 'lead-h22', lead: 'History Lead 23', agent: 'Jonny Green', date: '16 Jun', trigger: 'Quote opened after 19 days', outcome: 'no reply yet', aiDraft: 'I noticed you had another look at the quote. Do you want me to check whether the fee still fits your purchase details?', nextAction: 'Create same-day agent nudge task.', note: 'Recent open lifts priority.', value: 1340 },
+      ],
+    },
+    {
+      key: 'gone-elsewhere',
+      label: 'Gone elsewhere',
+      reason: 'May still need a second matter, rescue help, or future referral follow-up.',
+      eligible: 71,
+      value: 18400,
+      avgAgeDays: 96,
+      aiTouches: 204,
+      replyRate: 11,
+      conversionRate: 3.2,
+      risk: 'avoid aggressive win-back',
+      suppression: 22,
+      channel: 'email',
+      confidence: 67,
+      trend: [4, 5, 5, 6, 7, 8],
+      leads: [
+        { leadId: 'lead-h31', lead: 'History Lead 32', agent: 'Dej A', date: '9 Jun', trigger: 'Gone elsewhere 104d ago', outcome: 'no response', aiDraft: 'I hope your move is going smoothly. If anything gets stuck or you need a second opinion, I am happy to point you in the right direction.', nextAction: 'Hold as quarterly helpful check-in.', note: 'Recovery value lower, referral value still present.', value: 840 },
+        { leadId: 'lead-h8', lead: 'History Lead 9', agent: 'Louise Forshaw', date: '12 Jun', trigger: 'Sold elsewhere + new remortgage search keyword', outcome: 'clicked guide', aiDraft: 'If this is now a remortgage rather than the original sale, I can route you to the right quote quickly.', nextAction: 'Approve remortgage branch email.', note: 'AI matched new intent to old contact.', value: 950 },
+      ],
+    },
+    {
+      key: 'bad-number',
+      label: 'Wrong / invalid number',
+      reason: 'AI reconstructs likely contact routes from phone, email, name, IP and area-code signals.',
+      eligible: 53,
+      value: 22100,
+      avgAgeDays: 28,
+      aiTouches: 119,
+      replyRate: 19,
+      conversionRate: 6.6,
+      risk: 'requires approval',
+      suppression: 6,
+      channel: 'mixed',
+      confidence: 73,
+      trend: [3, 4, 6, 7, 8, 10],
+      leads: [
+        { leadId: 'lead-4', lead: 'Aisha Bello', agent: 'Helen Sadler', date: '18 Jun', trigger: 'Wrong number, email domain valid', outcome: 'email delivered', aiDraft: 'We could not reach you by phone, so I am checking by email before we close this quote request.', nextAction: 'Approve email and verify phone candidate.', note: 'Phone repair confidence 82%.', value: 1450 },
+        { leadId: 'lead-h6', lead: 'History Lead 7', agent: 'Jonny Green', date: '17 Jun', trigger: 'Number invalid + Manchester IP', outcome: 'candidate number found', aiDraft: 'I wanted to check we have the best contact number before we close this off.', nextAction: 'Agent approval required before using repaired number.', note: 'Area code and IP both point North West.', value: 1220 },
+      ],
+    },
+    {
+      key: 'quoted-no-touch',
+      label: 'Quoted no touch',
+      reason: 'Quote sent or accepted signal exists, but no human follow-up happened after the window.',
+      eligible: 88,
+      value: 43100,
+      avgAgeDays: 17,
+      aiTouches: 463,
+      replyRate: 25,
+      conversionRate: 11.2,
+      risk: 'highest value',
+      suppression: 5,
+      channel: 'mixed',
+      confidence: 88,
+      trend: [9, 11, 13, 16, 18, 22],
+      leads: [
+        { leadId: 'lead-14', lead: 'James Flock', agent: 'Louise Forshaw', date: '18 Jun', trigger: 'Quote accepted, no payment', outcome: 'SMS clicked', aiDraft: 'You accepted the quote but the payment step looks unfinished. Do you want me to resend the secure link?', nextAction: 'Create payment recovery task.', note: 'High intent; do not leave to generic drip.', value: 1620 },
+        { leadId: 'lead-3', lead: 'Chidi Okeke', agent: 'Dej A', date: '18 Jun', trigger: 'Remortgage quote sent, no touch 5d', outcome: 'opened twice', aiDraft: 'Do you want me to check whether the remortgage quote still matches your lender timing?', nextAction: 'Approve SMS + call task.', note: 'Best window: early afternoon.', value: 980 },
+      ],
+    },
+    {
+      key: 'won-client',
+      label: 'Won clients',
+      reason: 'Post-completion referral, repeat matter and related-need opportunities.',
+      eligible: 54,
+      value: 29800,
+      avgAgeDays: 142,
+      aiTouches: 394,
+      replyRate: 31,
+      conversionRate: 9.1,
+      risk: 'brand-safe only',
+      suppression: 3,
+      channel: 'email',
+      confidence: 86,
+      trend: [5, 6, 8, 10, 12, 15],
+      leads: [
+        { leadId: 'lead-10', lead: 'Sarah Pearse', agent: 'Helen Sadler', date: '15 Jun', trigger: 'Completed sale + purchase 5 months ago', outcome: 'referral link opened', aiDraft: 'I hope you are settled in. If a friend or family member needs conveyancing, I can make sure they are looked after quickly.', nextAction: 'Approve referral ask.', note: 'High satisfaction tag from completion call.', value: 1300 },
+        { leadId: 'lead-11', lead: 'Jasmine Ashford', agent: 'Jonny Green', date: '13 Jun', trigger: 'Purchase completed 4 months ago', outcome: 'reply positive', aiDraft: 'Thanks again for trusting us with the purchase. If you ever need sale, remortgage or transfer help, just reply here.', nextAction: 'Create referral follow-up task.', note: 'Client replied positively to check-in.', value: 1180 },
+      ],
+    },
+  ],
+  campaigns: [
+    { key: 'soft-check-in', name: 'Soft check-in after old rejection', channel: 'email', status: 'running', sent: 424, opened: 198, replied: 42, recovered: 9, value: 11900, openRate: 47, replyRate: 10, conversionRate: 2.1, cost: 92, spark: [22, 26, 30, 33, 37, 42] },
+    { key: 'quote-save', name: 'Still moving? quote rescue', channel: 'mixed', status: 'approval', sent: 286, opened: 154, replied: 37, recovered: 14, value: 21800, openRate: 54, replyRate: 13, conversionRate: 4.9, cost: 128, spark: [18, 22, 25, 31, 34, 39] },
+    { key: 'bad-number-repair', name: 'Contact reconstruction approval', channel: 'mixed', status: 'learning', sent: 119, opened: 61, replied: 18, recovered: 6, value: 8100, openRate: 51, replyRate: 15, conversionRate: 5.0, cost: 74, spark: [5, 7, 8, 11, 13, 18] },
+    { key: 'won-referral', name: 'Won-client referral ask', channel: 'email', status: 'running', sent: 394, opened: 244, replied: 64, recovered: 8, value: 9700, openRate: 62, replyRate: 16, conversionRate: 2.0, cost: 88, spark: [20, 24, 31, 36, 48, 64] },
+    { key: 'ai-call-loop', name: 'AI call retry loop', channel: 'call', status: 'paused', sent: 212, opened: 0, replied: 31, recovered: 5, value: 7100, openRate: 0, replyRate: 15, conversionRate: 2.4, cost: 186, spark: [8, 9, 12, 14, 16, 19] },
+  ],
+  reconstruction: [
+    { key: 'rx-1', leadId: 'lead-4', lead: 'Aisha Bello', issue: 'Wrong number', original: '07700 900113', proposal: '07700 900118', signals: ['same email domain', 'Manchester IP', 'name match in web enquiry'], confidence: 82, status: 'needs approval', action: 'Ask Helen to verify before call', value: 1450, agent: 'Helen Sadler', trend: [1, 1, 2, 3, 4, 5], note: 'AI found one digit likely transposed; do not auto-call until approved.' },
+    { key: 'rx-2', leadId: 'lead-h6', lead: 'History Lead 7', issue: 'Number invalid', original: '07700 70718', proposal: 'email-first + request best mobile', signals: ['email delivered', 'North West IP', 'no phone confidence'], confidence: 69, status: 'queued', action: 'Send email asking for best number', value: 1220, agent: 'Jonny Green', trend: [1, 2, 2, 3, 3, 4], note: 'Phone repair is weak; email route is safer.' },
+    { key: 'rx-3', leadId: 'lead-h20', lead: 'History Lead 21', issue: 'Typo in email', original: 'client@gmial.com', proposal: 'client@gmail.com', signals: ['MX domain typo', 'same phone area', 'quote page revisit'], confidence: 91, status: 'agent notified', action: 'Approve corrected email drip', value: 980, agent: 'Dej A', trend: [2, 2, 3, 4, 4, 6], note: 'Classic domain typo; safe to ask agent to confirm.' },
+    { key: 'rx-4', leadId: 'lead-h28', lead: 'History Lead 29', issue: 'Fake number marker', original: '+447000000000', proposal: 'suppress phone, use email only', signals: ['disposable phone pattern', 'email opened', 'London IP'], confidence: 76, status: 'suppressed', action: 'Email only, no dial', value: 710, agent: 'Louise Forshaw', trend: [1, 1, 1, 2, 2, 2], note: 'Do not reintroduce phone noise to agents.' },
+  ],
+  agentQueue: [
+    { agent: 'Louise Forshaw', freeSlots: 6, tasks: 18, value: 26400, focus: 'Quoted no touch', channels: 'SMS + call', expectedRecovery: 7, oldest: '19d' },
+    { agent: 'Dej A', freeSlots: 4, tasks: 14, value: 18800, focus: 'Getting prices', channels: 'Email + call', expectedRecovery: 5, oldest: '33d' },
+    { agent: 'Helen Sadler', freeSlots: 3, tasks: 11, value: 14200, focus: 'Bad number approval', channels: 'Email first', expectedRecovery: 4, oldest: '28d' },
+    { agent: 'Jonny Green', freeSlots: 5, tasks: 16, value: 21600, focus: 'Won-client referral', channels: 'Email', expectedRecovery: 6, oldest: '5mo' },
+  ],
+  aiCalls: [
+    { label: 'AI call attempts', count: 212, rate: 100, tone: 'info' },
+    { label: 'Answered', count: 62, rate: 29, tone: 'warn' },
+    { label: 'Qualified responses', count: 31, rate: 15, tone: 'good' },
+    { label: 'Transferred to human', count: 18, rate: 9, tone: 'good' },
+    { label: 'Suppressed', count: 22, rate: 10, tone: 'bad' },
+  ],
+  wonClients: [
+    { leadId: 'lead-10', client: 'Sarah Pearse', completedAgo: '5 months', opportunity: 'Referral ask after positive completion', confidence: 88, referralAsk: 'Friends/family conveyancing intro', expectedValue: 1300, stage: 'draft ready', agent: 'Helen Sadler' },
+    { leadId: 'lead-11', client: 'Jasmine Ashford', completedAgo: '4 months', opportunity: 'Repeat purchase/remortgage check', confidence: 81, referralAsk: 'Useful moving checklist + reply prompt', expectedValue: 1180, stage: 'replied positive', agent: 'Jonny Green' },
+    { leadId: 'lead-h34', client: 'History Lead 35', completedAgo: '8 months', opportunity: 'Landlord portfolio broadcast', confidence: 74, referralAsk: 'Portfolio remortgage or transfer help', expectedValue: 1840, stage: 'approval needed', agent: 'Dej A' },
+    { leadId: 'lead-h41', client: 'History Lead 42', completedAgo: '11 months', opportunity: 'Estate-agent referral route', confidence: 69, referralAsk: 'Ask if their agent needs a trusted conveyancing contact', expectedValue: 960, stage: 'waiting', agent: 'Louise Forshaw' },
+  ],
+  advice: [
+    { severity: 'high', title: 'Start with quoted-no-touch', text: 'It has the best recovery value and 11.2% conversion. Allocate agent tasks before adding more generic AI touches.' },
+    { severity: 'high', title: 'Keep bad-number recovery approval-first', text: 'AI can find likely fixes, but repaired phone numbers should be reviewed by an agent before any call attempt.' },
+    { severity: 'med', title: 'Train the call agent on winning human calls', text: 'Use old human call outcomes to pretrain scripts: price objection, timing-not-ready and quote rescue paths.' },
+    { severity: 'med', title: 'Won clients should become a referral channel', text: 'The referral ask has a 31% reply rate. Treat completed matters as future pipeline, not closed history.' },
+    { severity: 'low', title: 'Suppress before scaling', text: 'Keep unsubscribe, fake number and complaint-style signals visible so recovery never damages brand trust.' },
+  ],
+};
+
 /* ----------------------- call intelligence (SOW gaps) — DEMO ONLY ----------------------- */
 // Per-agent CRM Call-1/2/3 marking vs what 3CX actually recorded (SOW 4.6 accountability).
 const CALL_VERIFICATION = {
@@ -1166,7 +1358,7 @@ const AGENT_WORKSPACE = {
 // per lead + how inquiries enter (channel mix). DEMO ONLY.
 const CONVERSATIONS = {
   channelMix: [
-    { label: 'Web form', count: 142 }, { label: 'Comparison site', count: 118 }, { label: 'Phone', count: 96 }, { label: 'WhatsApp', count: 84 }, { label: 'Email', count: 61 },
+    { label: 'Web form', count: 142 }, { label: 'Comparison site', count: 118 }, { label: 'Phone', count: 96 }, { label: 'WhatsApp', count: 84 }, { label: 'Email', count: 61 }, { label: 'Recovery Engine', count: 53 },
   ],
   threads: [
     { id: 't1', name: 'Karen Howe', channel: 'whatsapp', intent: 'Purchase quote', last: 'Yes that works, what next?', at: '4m', unread: 2, status: 'open', agent: 'Louise Forshaw', responseMins: 4, converted: false },
@@ -1174,6 +1366,9 @@ const CONVERSATIONS = {
     { id: 't3', name: 'Tom Reilly', channel: 'sms', intent: 'Remortgage', last: 'Can you call me?', at: '3h', unread: 1, status: 'open', agent: 'Priya Shah', responseMins: 12, converted: false },
     { id: 't4', name: 'Sara Mensah', channel: 'email', intent: 'Sale quote', last: 'Thanks for the quote', at: '5h', unread: 0, status: 'open', agent: 'Sarah Okafor', responseMins: 22, converted: false },
     { id: 't5', name: 'Daniel Park', channel: 'web', intent: 'Purchase enquiry', last: 'Submitted via comparison site', at: '1d', unread: 0, status: 'closed', agent: 'James Okoro', responseMins: 35, converted: true },
+    { id: 't6', name: 'Aisha Bello', channel: 'email', intent: 'Recovery: wrong number repair', last: 'Yes, this is my correct email. Please resend the quote.', at: '28m', unread: 1, status: 'open', agent: 'Helen Sadler', responseMins: 8, converted: false },
+    { id: 't7', name: 'Sarah Pearse', channel: 'email', intent: 'Recovery: won-client referral', last: 'Happy to pass your details to my brother.', at: '2h', unread: 1, status: 'open', agent: 'Jonny Green', responseMins: 7, converted: true },
+    { id: 't8', name: 'History Lead 23', channel: 'sms', intent: 'Recovery: quote rescue', last: 'Still interested, can someone call tomorrow?', at: '4h', unread: 2, status: 'open', agent: 'Dej A', responseMins: 11, converted: false },
   ],
   assignableAgents: ['Louise Forshaw', 'Priya Shah', 'Sarah Okafor', 'James Okoro'],
   stats: {
@@ -1182,6 +1377,7 @@ const CONVERSATIONS = {
       { label: 'Avg first response', value: '6m', sub: 'vs 11m last wk', tone: 'good', deltaPct: -45, good: true },
       { label: 'Within 10-min SLA', value: '78%', sub: 'of conversations', tone: 'good', deltaPct: 12, good: true },
       { label: 'Chat → instruction', value: '16%', sub: 'conversion', tone: 'good', deltaPct: 9, good: true },
+      { label: 'Recovery replies', value: '53', sub: 'from old/lost leads', tone: 'good', deltaPct: 18, good: true },
     ],
     byAgent: [
       { agent: 'Louise Forshaw', handled: 38, avgResponseMins: 5, conversion: 18 },
@@ -1215,6 +1411,18 @@ const CONVERSATIONS = {
     t5: [
       { from: 'lead', text: 'Submitted via comparison site', at: '2 days ago' },
       { from: 'agent', text: 'Thanks for your enquiry — I will be in touch shortly.', at: '2 days ago' },
+    ],
+    t6: [
+      { from: 'agent', text: 'Hi Aisha, we could not reach you by phone, so I am checking by email before closing this quote request.', at: '10:18' },
+      { from: 'lead', text: 'Yes, this is my correct email. Please resend the quote.', at: '10:46' },
+    ],
+    t7: [
+      { from: 'agent', text: 'I hope you are settled in. If a friend or family member needs conveyancing, I can make sure they are looked after quickly.', at: '09:20' },
+      { from: 'lead', text: 'Happy to pass your details to my brother.', at: '11:05' },
+    ],
+    t8: [
+      { from: 'agent', text: 'I noticed you had another look at the quote. Do you want me to check whether it still matches your purchase details?', at: '08:44' },
+      { from: 'lead', text: 'Still interested, can someone call tomorrow?', at: '12:03' },
     ],
   },
 };
@@ -2120,6 +2328,7 @@ export const RPC = {
   get_firm_trends: () => FIRM_TRENDS,
   get_team_performance: () => TEAM_PERFORMANCE,
   get_marketing: () => MARKETING,
+  get_recovery_engine: () => RECOVERY_ENGINE,
   get_email_analytics: () => MAIL,
   get_call_verification: () => CALL_VERIFICATION,
   get_inbound_overview: () => INBOUND_OVERVIEW,
