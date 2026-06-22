@@ -1,5 +1,5 @@
-// Recovery Engine — manager control room for old-lead revival, contact
-// reconstruction, AI outreach/calls, won-client referrals and agent allocation.
+// Recovery Engine — manager control room for pre-instruction revival, contact
+// reconstruction, AI outreach/calls, quote-to-instruction rescue and agent allocation.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -29,7 +29,6 @@ import {
   RecoveryEngineData,
   RecoveryReconstructionItem,
   RecoveryTone,
-  RecoveryWonClient,
 } from '@/services/recoveryEngineService';
 import { MarketingKpiStrip } from '@/components/marketing/MarketingKpiStrip';
 import { RangeFilter, rangeLabel, scaleRangeCount, scaleRangeMoney } from '@/components/analytics/RangeFilter';
@@ -120,27 +119,6 @@ const signalFromReconstruction = (item: RecoveryReconstructionItem) => ({
       repReplied: `Proposed route: ${item.proposal}`,
       clientReaction: item.signals.join(' · '),
       note: `${item.action}. ${item.note}`,
-    },
-  ],
-});
-
-const signalFromWonClient = (client: RecoveryWonClient) => ({
-  key: `won-${client.leadId}`,
-  label: `${client.client} · ${client.opportunity}`,
-  count: 1,
-  calls: 1,
-  sentiment: client.confidence >= 80 ? 0.64 : 0.28,
-  conversion: { withPct: client.confidence, otherPct: 42 },
-  trend: [2, 3, 4, 5, 7, 9],
-  sample: [
-    {
-      agent: client.agent,
-      lead: client.client,
-      date: client.completedAgo,
-      clientSaid: client.opportunity,
-      repReplied: client.referralAsk,
-      clientReaction: client.stage,
-      note: `Expected value ${money(client.expectedValue)}. Keep this brand-safe and relationship-led.`,
     },
   ],
 });
@@ -280,10 +258,6 @@ const scaleRecoveryData = (data: RecoveryEngineData, range: string): RecoveryEng
   aiCalls: data.aiCalls.map((metric) => ({
     ...metric,
     count: scaleRangeCount(metric.count, range),
-  })),
-  wonClients: data.wonClients.map((client) => ({
-    ...client,
-    expectedValue: scaleRangeMoney(client.expectedValue, range),
   })),
   scores: data.scores.map((lead) => ({
     ...lead,
@@ -596,52 +570,6 @@ const AiCallPanel: React.FC<{ metrics: RecoveryEngineData['aiCalls'] }> = ({ met
   </div>
 );
 
-const WonClientPanel: React.FC<{
-  clients: RecoveryWonClient[];
-  onOpen: (client: RecoveryWonClient) => void;
-  onLead: (leadId: string) => void;
-}> = ({ clients, onOpen, onLead }) => (
-  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-    <div className="flex items-center gap-2">
-      <ShieldCheck className="h-4 w-4 text-navy-700" />
-      <h3 className="text-sm font-semibold text-gray-900">Won-client referral and repeat opportunity</h3>
-    </div>
-    <p className="mt-0.5 text-xs text-gray-500">Completed matters become a relationship-led growth channel.</p>
-    <div className="mt-3 grid gap-2 md:grid-cols-2">
-      {clients.map((client) => (
-        <button
-          key={client.leadId}
-          type="button"
-          onClick={() => onOpen(client)}
-          className="rounded-lg border border-gray-200 p-3 text-left transition-colors hover:bg-gray-50"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-semibold text-gray-900">{client.client}</div>
-              <div className="text-xs text-gray-500">{client.completedAgo} since completion</div>
-            </div>
-            <span className="text-sm font-semibold tabular-nums text-gray-900">{client.confidence}%</span>
-          </div>
-          <p className="mt-2 line-clamp-2 text-xs text-gray-600">{client.opportunity}</p>
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold tabular-nums text-green-700">{money(client.expectedValue)}</span>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onLead(client.leadId);
-              }}
-              className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-200"
-            >
-              Lead
-            </button>
-          </div>
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
 const ScoreBoard: React.FC<{
   leads: RecoveryEngineData['scores'];
   onOpen: (lead: RecoveryEngineData['scores'][number]) => void;
@@ -654,7 +582,7 @@ const ScoreBoard: React.FC<{
           <Target className="h-4 w-4 text-navy-700" />
           <h3 className="text-sm font-semibold text-gray-900">Recovery score queue</h3>
         </div>
-        <p className="mt-0.5 text-xs text-gray-500">Best old/won/bad-contact opportunities ranked by intent, value, risk and contact confidence.</p>
+        <p className="mt-0.5 text-xs text-gray-500">Best old, stalled-quote and bad-contact opportunities ranked by intent, value, risk and contact confidence.</p>
       </div>
       <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">best-first</span>
     </div>
@@ -981,7 +909,7 @@ const RecoveryEngine: React.FC = () => {
             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">simulated + approval-first</span>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            Re-engage old/lost leads, repair contact data, revive won-client referrals and route soft recovery tasks.
+            Re-engage old/lost leads, repair contact data, rescue quote-to-instruction handoffs and route soft recovery tasks.
           </p>
         </div>
         <RangeFilter value={range} onChange={setRange} />
@@ -995,11 +923,11 @@ const RecoveryEngine: React.FC = () => {
           { label: 'Recovery replies', text: 'AI outreach replies appear in the unified inbox.', href: '/conversations', icon: MessageSquare, color: '#16a34a' },
           { label: 'Approval workflows', text: 'Outcome-code triggers create drafts, waits and tasks.', href: '/automation', icon: Zap, color: '#f59e0b' },
           { label: 'APCM AI oversight', text: 'AI watches recovery value and risky outreach.', href: '/apcm-ai', icon: Brain, color: '#4338ca' },
-          { label: 'Lifecycle Growth', text: 'Old leads, won clients and repeat opportunities together.', href: '/lifecycle-growth', icon: Sparkles, color: '#16a34a' },
+          { label: 'Pre-Instruction Growth', text: 'Old leads, stalled quotes and dormant enquiries together.', href: '/lifecycle-growth', icon: Sparkles, color: '#16a34a' },
           { label: 'Contact Intelligence', text: 'Phone, IP, email and duplicate confidence.', href: '/contact-intelligence', icon: Search, color: '#1e3a8a' },
           { label: 'AI Outreach Command', text: 'Every AI message, call and handover in one queue.', href: '/ai-outreach-command', icon: Mail, color: '#4338ca' },
           { label: 'Dormant Vault', text: 'Mine old history by score, source, value and risk.', href: '/dormant-lead-vault', icon: Clock, color: '#f59e0b' },
-          { label: 'Second-Chance Revenue', text: 'Executive value, ROI and forecast view.', href: '/second-chance-revenue', icon: Target, color: '#16a34a' },
+          { label: 'Second-Chance Instruction', text: 'Instruction-value, ROI and forecast view.', href: '/second-chance-revenue', icon: Target, color: '#16a34a' },
         ].map((link) => {
           const Icon = link.icon;
           return (
@@ -1086,11 +1014,36 @@ const RecoveryEngine: React.FC = () => {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(360px,0.85fr)_minmax(0,1.15fr)]">
         <AgentAllocation agents={activeData.agentQueue} />
-        <WonClientPanel
-          clients={activeData.wonClients}
-          onOpen={(client) => setSelected(signalFromWonClient(client))}
-          onLead={(leadId) => navigate(`/lead-management?leadId=${leadId}`)}
-        />
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-navy-700" />
+            <h3 className="text-sm font-semibold text-gray-900">Instruction handoff boundary</h3>
+          </div>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Connor&apos;s ownership ends once the lead becomes instructed. The engine tracks the handoff quality, then the legal team owns the file.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {[
+              { label: 'Instruction pack sent', value: '31', detail: 'handoff-ready today', color: '#16a34a' },
+              { label: 'Accepted not instructed', value: '14', detail: 'rescue before handoff', color: '#f59e0b' },
+              { label: 'Needs legal owner', value: '6', detail: 'post-instruction queue', color: '#4338ca' },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => navigate('/reports/instructions?preset=today')}
+                className="rounded-lg bg-gray-50 p-3 text-left hover:bg-gray-100"
+              >
+                <div className="text-[11px] font-semibold uppercase text-gray-500">{item.label}</div>
+                <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: item.color }}>{item.value}</div>
+                <div className="text-xs text-gray-500">{item.detail}</div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm leading-6 text-amber-950">
+            Parked idea: post-completion referrals can still exist later, but not inside Connor&apos;s recovery queue or daily operating forecast.
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">

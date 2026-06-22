@@ -1,7 +1,8 @@
-// Recovery Engine — old-lead revival, won-client referral outreach, contact
-// reconstruction, AI drip/call telemetry and agent task allocation. In ty this
-// will compose outcome-code cohorts, provider message logs, 3CX/AI call-agent
-// events, tasks, suppression rules and lead history; here it reads the mock.
+// Recovery Engine — old-lead revival, quote-to-instruction rescue, contact
+// reconstruction, AI drip/call telemetry and agent task allocation before
+// instruction handoff. In ty this will compose outcome-code cohorts, provider
+// message logs, 3CX/AI call-agent events, tasks, suppression rules and lead
+// history; here it reads the mock.
 
 import { supabase } from '@/lib/supabase';
 import { MktKpi } from '@/services/marketingService';
@@ -90,18 +91,6 @@ export interface RecoveryAiCallMetric {
   count: number;
   rate: number;
   tone: RecoveryTone;
-}
-
-export interface RecoveryWonClient {
-  leadId: string;
-  client: string;
-  completedAgo: string;
-  opportunity: string;
-  confidence: number;
-  referralAsk: string;
-  expectedValue: number;
-  stage: string;
-  agent: string;
 }
 
 export interface RecoveryScoreLead {
@@ -264,7 +253,6 @@ export interface RecoveryEngineData {
   reconstruction: RecoveryReconstructionItem[];
   agentQueue: RecoveryAgentQueue[];
   aiCalls: RecoveryAiCallMetric[];
-  wonClients: RecoveryWonClient[];
   scores: RecoveryScoreLead[];
   lostReasons: RecoveryLostReason[];
   journeys: RecoveryJourney[];

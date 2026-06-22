@@ -1,5 +1,5 @@
 // Forecast — connects lead volume, source quality, region, matter mix, capacity,
-// instructions, completions and revenue so Connor can plan the conveyancing firm.
+// instructions, handoff pressure and instruction value so Connor can plan pre-instruction ops.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -146,9 +146,9 @@ const ForecastBridge: React.FC<{ data: FC; range: string }> = ({ data, range }) 
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <Target className="h-4 w-4 text-navy-700" />
-        <h2 className="text-sm font-semibold text-gray-900">Lead-to-revenue forecast bridge</h2>
+        <h2 className="text-sm font-semibold text-gray-900">Lead-to-instruction forecast bridge</h2>
       </div>
-      <p className="mt-0.5 text-xs text-gray-500">Connects expected leads to quotes, instructions, completions and revenue.</p>
+      <p className="mt-0.5 text-xs text-gray-500">Connects expected leads to quotes, instruction handoffs and forecast instruction value.</p>
       <div className="mt-4 grid gap-3 lg:grid-cols-5">
         {data.bridge.map((stage, index) => {
           const isMoney = stage.label.includes('Revenue');
@@ -382,7 +382,7 @@ const ExternalSignals: React.FC<{ data: FC }> = ({ data }) => (
       <Brain className="h-4 w-4 text-navy-700" />
       <h2 className="text-sm font-semibold text-gray-900">Market signals feeding the forecast</h2>
     </div>
-    <p className="mt-0.5 text-xs text-gray-500">Where live wiring should connect official property movement to APCM lead and completion forecasts.</p>
+    <p className="mt-0.5 text-xs text-gray-500">Where live wiring should connect official property movement to APCM lead and instruction-handoff forecasts.</p>
     <div className="mt-3 grid gap-3 md:grid-cols-2">
       {data.externalSignals.map((signal) => (
         <div key={signal.label} className="rounded-lg bg-gray-50 p-3">
@@ -470,7 +470,7 @@ const Forecast: React.FC = () => {
             </h1>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            Leads, sources, regions, instructions, completions, revenue and capacity in one planning view.
+            Leads, sources, regions, instructions, handoff pressure, instruction value and capacity in one planning view.
           </p>
         </div>
         <RangeFilter value={range} onChange={setRange} />
@@ -557,7 +557,7 @@ const Forecast: React.FC = () => {
 
       <div className="grid gap-5 xl:grid-cols-2">
         <ForecastChart title="Instructions forecast" caption={`Actual + projection (± range) · ${rangeLabel(range)}`} labels={activeData.instructions.labels} actual={activeData.instructions.actual} forecast={activeData.instructions.forecast} lower={activeData.instructions.lower} upper={activeData.instructions.upper} />
-        <ForecastChart title="Revenue forecast (£k)" caption={`Actual + projection (± range) · ${rangeLabel(range)}`} labels={activeData.revenue.labels} actual={activeData.revenue.actual} forecast={activeData.revenue.forecast} lower={activeData.revenue.lower} upper={activeData.revenue.upper} />
+        <ForecastChart title="Instruction value forecast (£k)" caption={`Actual + projection (± range) · ${rangeLabel(range)}`} labels={activeData.revenue.labels} actual={activeData.revenue.actual} forecast={activeData.revenue.forecast} lower={activeData.revenue.lower} upper={activeData.revenue.upper} />
       </div>
 
       <ForecastChart title="Lead volume forecast" caption={`Actual + projection (± range) · ${rangeLabel(range)}`} labels={activeData.leadVolume.labels} actual={activeData.leadVolume.actual} forecast={activeData.leadVolume.forecast} lower={activeData.leadVolume.lower} upper={activeData.leadVolume.upper} />

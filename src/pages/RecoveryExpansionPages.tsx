@@ -1,5 +1,5 @@
-// Companion recovery views: lifecycle growth, contact intelligence, AI outreach,
-// dormant lead mining and second-chance revenue. All are demo-only and read the
+// Companion recovery views: pre-instruction growth, contact intelligence, AI outreach,
+// dormant lead mining and second-chance instruction value. All are demo-only and read the
 // same Recovery Engine mock so the story stays connected.
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -119,16 +119,16 @@ export const LifecycleGrowthEngine: React.FC = () => {
   return (
     <PageShell
       icon={<Sparkles className="h-4 w-4" />}
-      title="Lifecycle Growth."
-      subtitle="Old leads, won clients, referrals, repeat matters and dormant revenue in one growth system."
+      title="Pre-Instruction Growth."
+      subtitle="Old leads, stalled quotes, contact repairs and dormant enquiries before legal handoff."
       range={range}
       setRange={setRange}
     >
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard label="Lifecycle value" value={money(scaleRangeMoney(stats.value, range))} sub={rangeLabel(range)} color="#16a34a" />
-        <MetricCard label="Opportunities" value={fmt(scaleRangeCount(stats.count, range))} sub="old + won + dormant" color="#1e3a8a" />
+        <MetricCard label="Opportunities" value={fmt(scaleRangeCount(stats.count, range))} sub="old + stalled + dormant" color="#1e3a8a" />
         <MetricCard label="Avg conversion" value={pct(stats.avgConversion)} sub="across lifecycle plays" color="#4338ca" />
-        <MetricCard label="Referral-ready" value={fmt(scaleRangeCount(data.wonClients.length, range))} sub="relationship-led asks" color="#f59e0b" />
+        <MetricCard label="Handoff-ready" value={fmt(scaleRangeCount(31, range))} sub="instruction packs to send" color="#f59e0b" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
@@ -162,17 +162,21 @@ export const LifecycleGrowthEngine: React.FC = () => {
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-navy-700" />
-            <h2 className="text-sm font-semibold text-gray-900">Won-client growth</h2>
+            <h2 className="text-sm font-semibold text-gray-900">Not Connor-owned after instruction</h2>
           </div>
           <div className="mt-3 space-y-2">
-            {data.wonClients.map((client) => (
-              <button key={client.leadId} type="button" onClick={() => navigate(`/lead-management?leadId=${client.leadId}`)} className="w-full rounded-lg bg-gray-50 p-3 text-left hover:bg-gray-100">
+            {[
+              { leadId: 'handoff-1', client: 'Legal team handoff', opportunity: 'Once instruction is confirmed, file progression leaves Connor queue.', expectedValue: 0 },
+              { leadId: 'handoff-2', client: 'Relationship marketing', opportunity: 'Referral and repeat-matter ideas are parked for a separate owner, not daily lead ops.', expectedValue: 0 },
+              { leadId: 'handoff-3', client: 'Post-completion activity', opportunity: 'Completion, reviews and client-care follow-up stay visible but should not drive Connor capacity.', expectedValue: 0 },
+            ].map((client) => (
+              <button key={client.leadId} type="button" onClick={() => navigate('/recovery-engine')} className="w-full rounded-lg bg-gray-50 p-3 text-left hover:bg-gray-100">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold text-gray-900">{client.client}</div>
                     <div className="text-xs text-gray-500">{client.opportunity}</div>
                   </div>
-                  <span className="text-xs font-semibold tabular-nums text-green-700">{money(scaleRangeMoney(client.expectedValue, range))}</span>
+                  <span className="text-xs font-semibold text-gray-500">parked</span>
                 </div>
               </button>
             ))}
@@ -340,7 +344,7 @@ export const DormantLeadVault: React.FC = () => {
         <MetricCard label="Vault rows" value={fmt(scaleRangeCount(612, range))} sub="demo history" color="#1e3a8a" />
         <MetricCard label="Visible value" value={money(scaleRangeMoney(totalValue, range))} sub="sampled queue" color="#16a34a" />
         <MetricCard label="Avg score" value={pct(avgScore)} sub="top dormant sample" color="#4338ca" />
-        <MetricCard label="Saved views" value="5" sub="price, quote, repair, referral, stale" color="#f59e0b" />
+        <MetricCard label="Saved views" value="5" sub="price, quote, repair, stale, accepted" color="#f59e0b" />
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -401,13 +405,13 @@ export const SecondChanceRevenueDashboard: React.FC = () => {
   return (
     <PageShell
       icon={<Target className="h-4 w-4" />}
-      title="Second-Chance Revenue."
-      subtitle="Executive visibility for old-pipeline value, recovery wins, AI ROI and forecasted recovered instructions."
+      title="Second-Chance Instruction."
+      subtitle="Executive visibility for old-pipeline instruction value, recovery wins, AI ROI and forecasted recovered instructions."
       range={range}
       setRange={setRange}
     >
       <div className="grid gap-4 md:grid-cols-4">
-        <MetricCard label="Recoverable value" value={money(scaleRangeMoney(recoverable, range))} sub="active cohorts" color="#16a34a" />
+        <MetricCard label="Recoverable instruction value" value={money(scaleRangeMoney(recoverable, range))} sub="active pre-instruction cohorts" color="#16a34a" />
         <MetricCard label="Base forecast" value={money(scaleRangeMoney(forecast.value, range))} sub={`${fmt(scaleRangeCount(forecast.recovered, range))} recoveries`} color="#1e3a8a" />
         <MetricCard label="AI ROI" value={`${Math.round(campaignValue / Math.max(cost, 1))}x`} sub="campaign value vs cost" color="#4338ca" />
         <MetricCard label="Risk holds" value={fmt(scaleRangeCount(data.riskSignals.reduce((sum, risk) => sum + risk.count, 0), range))} sub="suppression and approval" color="#f59e0b" />
@@ -416,7 +420,7 @@ export const SecondChanceRevenueDashboard: React.FC = () => {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
         <TrendLineChart
           title="Recovered outcomes"
-          caption={`Recovered instructions/referrals · ${rangeLabel(range)}`}
+          caption={`Recovered instructions · ${rangeLabel(range)}`}
           series={[{ key: 'recovered', label: 'Recovered', color: '#16a34a', points: trendPoints }]}
         />
         <RankedBarList title="Value by lost reason" caption="Largest second-chance value pools" items={data.lostReasons.map((reason) => ({ label: reason.reason, count: scaleRangeMoney(reason.value, range), tone: reason.recoveredRate >= 8 ? 'good' : reason.recoveredRate >= 5 ? 'warn' : 'info' }))} defaultTone="info" />

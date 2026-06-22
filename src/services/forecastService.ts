@@ -1,4 +1,4 @@
-// Forecast — lead-volume, instruction and revenue projections with confidence bands
+// Forecast — lead-volume, instruction and pre-instruction value projections with confidence bands
 // (trailing run-rate × seasonal index). In ty this fits a simple seasonal model over the
 // trailing series; here, the mock. Each series has actual (history) + forecast + a
 // lower/upper band, overlapping by one point at the last actual.

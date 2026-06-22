@@ -43,7 +43,7 @@ const PAGE_MAP: PageEntry[] = [
     name: "Forecast",
     opener:
       "July is trending +12% on instructions (58, ±6) on the spring/summer uplift — pre-book capacity now.",
-    prompts: ["What is next month looking like?", "Where is the risk?", "Revenue forecast?"],
+    prompts: ["What is next month looking like?", "Where is the risk?", "Instruction value forecast?"],
   },
   {
     match: "/revenue-boost",
@@ -56,15 +56,15 @@ const PAGE_MAP: PageEntry[] = [
     match: "/recovery-engine",
     name: "Recovery Engine",
     opener:
-      "£148.6k is sitting in old, lost, wrong-number and won-client recovery queues. Start with quoted-no-touch before scaling AI drips.",
+      "£148.6k is sitting in old, lost, wrong-number and quote-to-instruction recovery queues. Start with quoted-no-touch before scaling AI drips.",
     prompts: ["Which cohort should we work first?", "Show risky outreach", "Who has capacity today?"],
   },
   {
     match: "/lifecycle-growth",
-    name: "Lifecycle Growth",
+    name: "Pre-Instruction Growth",
     opener:
-      "Lifecycle growth is now wider than old-lead recovery: won clients, referrals, repeat matters and dormant history are in one revenue map.",
-    prompts: ["Best lifecycle bucket?", "Referral opportunity?", "Who should own this?"],
+      "Pre-instruction growth now connects old leads, stalled quotes, contact repairs and dormant history before legal handoff.",
+    prompts: ["Best growth bucket?", "Handoff risk?", "Who should own this?"],
   },
   {
     match: "/contact-intelligence",
@@ -89,17 +89,17 @@ const PAGE_MAP: PageEntry[] = [
   },
   {
     match: "/second-chance-revenue",
-    name: "Second-Chance Revenue",
+    name: "Second-Chance Instruction",
     opener:
-      "Second-chance revenue is forecastable now: base plan approvals show the safest value without pushing risky outreach too hard.",
+      "Second-chance instruction value is forecastable now: base plan approvals show the safest recovery without pushing risky outreach too hard.",
     prompts: ["Show forecast", "Best ROI channel?", "Where is risk?"],
   },
   {
     match: "/matter-progression",
-    name: "Matter Progression",
+    name: "Legal Handoff",
     opener:
-      "Enquiries is your bottleneck stage (16d vs 14d benchmark) and Chen completion is overdue 1 day.",
-    prompts: ["What is at risk?", "What is overdue?", "Fall-through trend?"],
+      "This is legal-team visibility after instruction handoff, useful for leadership comparison but not Connor's operating queue.",
+    prompts: ["What changed after handoff?", "What is overdue?", "Fall-through trend?"],
   },
   {
     match: "/compliance",

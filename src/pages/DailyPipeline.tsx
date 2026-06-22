@@ -51,7 +51,7 @@ const RecoveryTodayCard: React.FC<{
             <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">approval-first</span>
           </div>
           <p className="mt-0.5 text-xs text-gray-500">
-            Old no-interest leads, quote shoppers, bad-number repairs and won-client referrals Connor can safely revive today.
+            Old no-interest leads, quote shoppers, bad-number repairs and quote-to-instruction rescues Connor can safely revive today.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

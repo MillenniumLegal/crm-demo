@@ -1066,7 +1066,6 @@ export const Dashboard: React.FC = () => {
   const callsDelta = stats.totalCallsToday - stats.totalCallsYesterday;
   const leadsDelta = stats.newLeads - previousStats.newLeads;
   const instructionsDelta = stats.instructedLeads - previousStats.instructedLeads;
-  const revenueDelta = totalRevenue - previousRevenue;
   const recoveryEligible = 486;
   const recoveryRecovered = 37;
   const recoveryValue = 148600;
@@ -1206,27 +1205,6 @@ export const Dashboard: React.FC = () => {
       ),
     },
     {
-      key: 'revenue',
-      label: 'Month revenue',
-      value: `£${totalRevenue.toLocaleString()}`,
-      sub: `${revenueDelta >= 0 ? '+' : '-'}£${Math.abs(revenueDelta).toLocaleString()} vs last month`,
-      tone: revenueDelta >= 0 ? '#16a34a' : '#ef4444',
-      href: '/payments',
-      signal: makeDashboardSignal(
-        'dashboard-revenue',
-        'Month revenue',
-        Math.max(1, Math.round(totalRevenue / 1000)),
-        [
-          Math.max(1, Math.round(previousRevenue / 1200)),
-          Math.max(1, Math.round(previousRevenue / 1000)),
-          Math.max(1, Math.round(totalRevenue / 1000)),
-        ],
-        `Paid revenue is £${totalRevenue.toLocaleString()} this month against £${previousRevenue.toLocaleString()} last month.`,
-        'Use this to spot when instruction gains are not translating into paid file-opening value.',
-        revenueDelta >= 0 ? 0.44 : -0.31,
-      ),
-    },
-    {
       key: 'recovery',
       label: 'Recovery queue',
       value: `£${recoveryValue.toLocaleString()}`,
@@ -1238,8 +1216,8 @@ export const Dashboard: React.FC = () => {
         'Recovery queue',
         recoveryEligible,
         [28, 31, 37, 42, 46, 51],
-        `${recoveryEligible} old, lost, wrong-number and won-client opportunities are eligible for approval-first recovery.`,
-        'Open Recovery Engine to review AI drafts, contact reconstruction, won-client referrals and free-agent task allocation before any outreach goes live.',
+        `${recoveryEligible} old, lost, wrong-number and quote-stalled opportunities are eligible for approval-first instruction recovery.`,
+        'Open Recovery Engine to review AI drafts, contact reconstruction, quote-to-instruction rescue and free-agent task allocation before any outreach goes live.',
         0.52,
       ),
     },
@@ -1377,7 +1355,7 @@ export const Dashboard: React.FC = () => {
                 <h3 className="text-sm font-semibold text-gray-900">Today&apos;s command briefing</h3>
               </div>
               <p className="mt-0.5 text-xs text-gray-500">
-                Live comparison layer across calls, intake, instructions, assignment pressure and paid value.
+                Live comparison layer across calls, intake, instructions, assignment pressure and recovery-to-instruction value.
               </p>
             </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
