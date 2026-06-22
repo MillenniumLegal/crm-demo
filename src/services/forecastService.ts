@@ -14,11 +14,101 @@ export interface ForecastSeries {
   upper: (number | null)[];
 }
 
+export interface ForecastBridgeStage {
+  label: string;
+  current: number;
+  forecast: number;
+  conversion: number;
+  risk: 'low' | 'medium' | 'high';
+  note: string;
+}
+
+export interface ForecastRegion {
+  key: string;
+  label: string;
+  area: string;
+  x: number;
+  y: number;
+  leads: number;
+  forecastLeads: number;
+  forecastInstructions: number;
+  capacity: number;
+  conversion: number;
+  avgFee: number;
+  topSource: string;
+  marketSignal: string;
+  confidence: number;
+  action: string;
+}
+
+export interface ForecastSource {
+  source: string;
+  currentLeads: number;
+  forecastLeads: number;
+  expectedInstructions: number;
+  conversion: number;
+  costPerInstruction: number;
+  confidence: number;
+  action: string;
+}
+
+export interface ForecastCapacity {
+  team: string;
+  owner: string;
+  currentCases: number;
+  forecastCases: number;
+  capacity: number;
+  risk: 'low' | 'medium' | 'high';
+  action: string;
+}
+
+export interface ForecastExternalSignal {
+  label: string;
+  value: string;
+  source: string;
+  impact: string;
+  action: string;
+  tone: 'good' | 'warn' | 'bad' | 'info';
+}
+
+export interface ForecastScenario {
+  label: string;
+  leadDelta: number;
+  instructions: number;
+  revenue: number;
+  completionRisk: number;
+  capacityGap: number;
+  note: string;
+}
+
+export interface ForecastMatterMix {
+  type: string;
+  forecastLeads: number;
+  expectedInstructions: number;
+  avgFee: number;
+  capacityRisk: 'low' | 'medium' | 'high';
+}
+
+export interface ForecastAction {
+  title: string;
+  detail: string;
+  href: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
 export interface Forecast {
   kpis: MktKpi[];
   instructions: ForecastSeries;
   revenue: ForecastSeries;
   leadVolume: ForecastSeries;
+  bridge: ForecastBridgeStage[];
+  regions: ForecastRegion[];
+  sources: ForecastSource[];
+  capacity: ForecastCapacity[];
+  externalSignals: ForecastExternalSignal[];
+  scenarios: ForecastScenario[];
+  matterMix: ForecastMatterMix[];
+  actions: ForecastAction[];
   note: string;
 }
 
