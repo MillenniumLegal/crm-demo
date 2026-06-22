@@ -24,19 +24,11 @@ interface RankedBarListProps {
   defaultTone?: Tone;
 }
 
-// Solid 500-weight fills keep the demo theme vivid; info defaults to navy.
-const TONE_BAR: Record<Tone, string> = {
-  good: 'bg-green-500',
-  warn: 'bg-amber-500',
-  bad: 'bg-red-500',
-  info: 'bg-navy-500',
-};
-
-const TONE_DOT: Record<Tone, string> = {
-  good: 'bg-green-500',
-  warn: 'bg-amber-500',
-  bad: 'bg-red-500',
-  info: 'bg-navy-500',
+const TONE_HEX: Record<Tone, string> = {
+  good: '#16a34a',
+  warn: '#f59e0b',
+  bad: '#ef4444',
+  info: '#1e3a8a',
 };
 
 export const RankedBarList: React.FC<RankedBarListProps> = ({
@@ -49,7 +41,7 @@ export const RankedBarList: React.FC<RankedBarListProps> = ({
   const maxCount = rows.reduce((max, item) => Math.max(max, item.count), 0);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
       {caption && <p className="mt-0.5 text-xs text-gray-400">{caption}</p>}
 
@@ -64,7 +56,7 @@ export const RankedBarList: React.FC<RankedBarListProps> = ({
               <li key={`${item.label}-${index}`}>
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`} />
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: TONE_HEX[tone] }} />
                     <span className="truncate text-sm font-medium text-gray-900">{item.label}</span>
                   </span>
                   <span className="shrink-0 text-sm font-semibold text-gray-700 tabular-nums">
@@ -74,8 +66,8 @@ export const RankedBarList: React.FC<RankedBarListProps> = ({
 
                 <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-gray-100">
                   <span
-                    className={`block h-full rounded-full ${TONE_BAR[tone]}`}
-                    style={{ width: `${width}%` }}
+                    className="block h-full rounded-full"
+                    style={{ width: `${width}%`, backgroundColor: TONE_HEX[tone] }}
                     title={`${item.label}: ${formatNumber(item.count)}`}
                   />
                 </div>
