@@ -28,6 +28,7 @@ import { AssignLeadModal } from '@/components/AssignLeadModal';
 import { AttentionStatCard } from '@/components/AttentionStatCard';
 import { ApcmAiDigestCard } from '@/components/ApcmAiDigestCard';
 import { DashboardTrends } from '@/components/trends/DashboardTrends';
+import { SignalDrawer } from '@/components/callinsights/SignalDrawer';
 import { APCM_AI_ENABLED } from '@/lib/featureFlags';
 import { fetchTodayActivities, formatActivityForDisplay } from '@/services/activityService';
 import { fetchLeadSummary } from '@/services/leadsService';
@@ -96,6 +97,7 @@ export const Dashboard: React.FC = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedLeadForAssign, setSelectedLeadForAssign] = useState<{ id: string; name: string } | null>(null);
   const [assignFeedback, setAssignFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [selectedDashboardSignal, setSelectedDashboardSignal] = useState<any | null>(null);
 
   // Auto-dismiss assign feedback after 3 seconds
   useEffect(() => {
@@ -1054,6 +1056,175 @@ export const Dashboard: React.FC = () => {
 
   const statCards = getStatCards();
 
+  const sevenDayConversion = stats.leadsCreatedLast7Days > 0
+    ? (stats.instructedFromLeadsCreatedLast7Days / Math.max(stats.leadsCreatedLast7Days, 1)) * 100
+    : 0;
+  const previousSevenDayConversion = previousStats.leadsCreatedLast7Days > 0
+    ? (previousStats.instructedFromLeadsCreatedLast7Days / Math.max(previousStats.leadsCreatedLast7Days, 1)) * 100
+    : 0;
+  const conversionDelta = sevenDayConversion - previousSevenDayConversion;
+  const callsDelta = stats.totalCallsToday - stats.totalCallsYesterday;
+  const leadsDelta = stats.newLeads - previousStats.newLeads;
+  const instructionsDelta = stats.instructedLeads - previousStats.instructedLeads;
+  const revenueDelta = totalRevenue - previousRevenue;
+  const assignmentPressure = Math.round((stats.unassignedLeads / Math.max(stats.newLeads + stats.unassignedLeads, 1)) * 100);
+  const latestUpdate = allTodayActivity[0]?.time ?? 'No updates yet';
+
+  const makeDashboardSignal = (
+    key: string,
+    label: string,
+    count: number,
+    trend: number[],
+    quote: string,
+    note: string,
+    sentiment = 0.2,
+  ) => ({
+    key,
+    label,
+    count,
+    calls: Math.max(1, count),
+    sentiment,
+    trend,
+    sample: [
+      {
+        agent: 'APCM AI',
+        lead: 'Main dashboard',
+        date: 'Today',
+        quote,
+        note,
+      },
+    ],
+  });
+
+  const briefingHero = (() => {
+    if (stats.unassignedLeads > 0) {
+      return {
+        title: 'Assign the queue first',
+        detail: `${stats.unassignedLeads} active leads are still unassigned, equal to ${assignmentPressure}% of the visible intake pressure.`,
+        tone: '#f59e0b',
+        href: '/lead-management?filter=unassigned',
+      };
+    }
+    if (callsDelta < 0) {
+      return {
+        title: 'Call cover is behind',
+        detail: `${Math.abs(callsDelta)} fewer calls than yesterday. Protect today before the late-afternoon drop.`,
+        tone: '#ef4444',
+        href: '/call-analysis?preset=today',
+      };
+    }
+    if (instructionsDelta > 0) {
+      return {
+        title: 'Instruction pace is ahead',
+        detail: `${instructionsDelta} more instructions than yesterday. Check the source and agent pattern while it is fresh.`,
+        tone: '#16a34a',
+        href: '/reports/instructions?preset=today',
+      };
+    }
+    return {
+      title: 'Watch conversion quality',
+      detail: `7-day conversion is ${sevenDayConversion.toFixed(1)}%, ${conversionDelta >= 0 ? '+' : ''}${conversionDelta.toFixed(1)} pts vs the previous window.`,
+      tone: conversionDelta >= 0 ? '#16a34a' : '#ef4444',
+      href: '/reports/instructions?dateBasis=lead_created',
+    };
+  })();
+
+  const dashboardBriefingRows = [
+    {
+      key: 'calls',
+      label: 'Call momentum',
+      value: stats.totalCallsToday.toLocaleString(),
+      sub: `${callsDelta >= 0 ? '+' : ''}${callsDelta} vs yesterday`,
+      tone: callsDelta >= 0 ? '#16a34a' : '#ef4444',
+      href: '/call-analysis?preset=today',
+      signal: makeDashboardSignal(
+        'dashboard-calls',
+        'Call momentum',
+        stats.totalCallsToday,
+        [Math.max(0, stats.totalCallsYesterday - 4), stats.totalCallsYesterday, stats.totalCallsToday],
+        `${stats.totalCallsToday} calls logged today versus ${stats.totalCallsYesterday} yesterday.`,
+        'Use this to decide whether the team needs more outbound cover before the peak windows close.',
+        callsDelta >= 0 ? 0.46 : -0.36,
+      ),
+    },
+    {
+      key: 'leads',
+      label: 'Lead intake',
+      value: stats.newLeads.toLocaleString(),
+      sub: `${leadsDelta >= 0 ? '+' : ''}${leadsDelta} vs yesterday`,
+      tone: leadsDelta >= 0 ? '#16a34a' : '#ef4444',
+      href: '/lead-management?filterAge=New',
+      signal: makeDashboardSignal(
+        'dashboard-leads',
+        'Lead intake',
+        stats.newLeads,
+        [Math.max(0, previousStats.newLeads - 2), previousStats.newLeads, stats.newLeads],
+        `${stats.newLeads} leads have arrived today; yesterday closed on ${previousStats.newLeads}.`,
+        'Pair this with source and location analytics before deciding whether the queue needs rebalancing.',
+        leadsDelta >= 0 ? 0.32 : -0.18,
+      ),
+    },
+    {
+      key: 'instructions',
+      label: 'Instruction pace',
+      value: stats.instructedLeads.toLocaleString(),
+      sub: `${instructionsDelta >= 0 ? '+' : ''}${instructionsDelta} vs yesterday`,
+      tone: instructionsDelta >= 0 ? '#16a34a' : '#ef4444',
+      href: '/reports/instructions?preset=today',
+      signal: makeDashboardSignal(
+        'dashboard-instructions',
+        'Instruction pace',
+        stats.instructedLeads,
+        [Math.max(0, previousStats.instructedLeads - 1), previousStats.instructedLeads, stats.instructedLeads],
+        `${stats.instructedLeads} weighted instructions today versus ${previousStats.instructedLeads} yesterday.`,
+        'Open the instruction report when this moves sharply so the source, agent, and matter-type driver is visible.',
+        instructionsDelta >= 0 ? 0.58 : -0.42,
+      ),
+    },
+    {
+      key: 'conversion',
+      label: '7-day conversion',
+      value: `${sevenDayConversion.toFixed(1)}%`,
+      sub: `${conversionDelta >= 0 ? '+' : ''}${conversionDelta.toFixed(1)} pts`,
+      tone: conversionDelta >= 0 ? '#16a34a' : '#ef4444',
+      href: '/reports/instructions?dateBasis=lead_created',
+      signal: makeDashboardSignal(
+        'dashboard-conversion',
+        '7-day conversion',
+        Math.round(sevenDayConversion),
+        [
+          Math.max(0, Math.round(previousSevenDayConversion - 2)),
+          Math.round(previousSevenDayConversion),
+          Math.round(sevenDayConversion),
+        ],
+        `${stats.instructedFromLeadsCreatedLast7Days} of ${stats.leadsCreatedLast7Days} recent leads have instructed.`,
+        'This is the best early warning for intake quality because it compares lead-created cohorts rather than all-time totals.',
+        conversionDelta >= 0 ? 0.49 : -0.34,
+      ),
+    },
+    {
+      key: 'revenue',
+      label: 'Month revenue',
+      value: `£${totalRevenue.toLocaleString()}`,
+      sub: `${revenueDelta >= 0 ? '+' : '-'}£${Math.abs(revenueDelta).toLocaleString()} vs last month`,
+      tone: revenueDelta >= 0 ? '#16a34a' : '#ef4444',
+      href: '/payments',
+      signal: makeDashboardSignal(
+        'dashboard-revenue',
+        'Month revenue',
+        Math.max(1, Math.round(totalRevenue / 1000)),
+        [
+          Math.max(1, Math.round(previousRevenue / 1200)),
+          Math.max(1, Math.round(previousRevenue / 1000)),
+          Math.max(1, Math.round(totalRevenue / 1000)),
+        ],
+        `Paid revenue is £${totalRevenue.toLocaleString()} this month against £${previousRevenue.toLocaleString()} last month.`,
+        'Use this to spot when instruction gains are not translating into paid file-opening value.',
+        revenueDelta >= 0 ? 0.44 : -0.31,
+      ),
+    },
+  ];
+
   // Quick action handlers
   const handleViewMyLeads = () => {
     navigate('/lead-management?filter=assigned');
@@ -1176,6 +1347,107 @@ export const Dashboard: React.FC = () => {
             );
           })}
         </div>
+
+      {user?.role !== 'Agent' && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-navy-700" />
+                <h3 className="text-sm font-semibold text-gray-900">Today&apos;s command briefing</h3>
+              </div>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Live comparison layer across calls, intake, instructions, assignment pressure and paid value.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              Latest update <span className="font-semibold text-gray-800">{latestUpdate}</span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.15fr)]">
+            <button
+              type="button"
+              onClick={() => navigate(briefingHero.href)}
+              className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:bg-white"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase text-gray-500">Best move now</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-900">{briefingHero.title}</div>
+                </div>
+                <span
+                  className="mt-1 h-3 w-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: briefingHero.tone }}
+                />
+              </div>
+              <p className="mt-2 text-sm leading-5 text-gray-600">{briefingHero.detail}</p>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                <div className="rounded-md bg-white p-2">
+                  <div className="text-gray-500">Updates</div>
+                  <div className="font-semibold tabular-nums text-gray-900">{allTodayActivity.length}</div>
+                </div>
+                <div className="rounded-md bg-white p-2">
+                  <div className="text-gray-500">Unassigned</div>
+                  <div className="font-semibold tabular-nums text-gray-900">{stats.unassignedLeads}</div>
+                </div>
+                <div className="rounded-md bg-white p-2">
+                  <div className="text-gray-500">Conv.</div>
+                  <div className="font-semibold tabular-nums text-gray-900">{sevenDayConversion.toFixed(1)}%</div>
+                </div>
+              </div>
+            </button>
+
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+              {dashboardBriefingRows.map((row) => (
+                <div
+                  key={row.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedDashboardSignal(row.signal)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setSelectedDashboardSignal(row.signal);
+                    }
+                  }}
+                  className="flex min-h-[132px] cursor-pointer flex-col justify-between rounded-lg border border-gray-200 bg-white p-3 outline-none transition-colors hover:bg-gray-50 focus:bg-indigo-50"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate text-xs font-medium text-gray-500">{row.label}</div>
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: row.tone }} />
+                    </div>
+                    <div className="mt-1 text-xl font-bold tabular-nums text-gray-900">{row.value}</div>
+                    <div className="text-xs font-semibold tabular-nums" style={{ color: row.tone }}>{row.sub}</div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(100, Math.max(8, Math.abs(Number.parseFloat(row.sub.replace(/[^0-9.-]/g, ''))) * 8 || 24))}%`,
+                          backgroundColor: row.tone,
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(row.href);
+                      }}
+                      className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-200"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {user?.role !== 'Agent' && <DashboardTrends />}
 
@@ -1508,6 +1780,11 @@ export const Dashboard: React.FC = () => {
       )}
         </>
       )}
+
+      <SignalDrawer
+        item={selectedDashboardSignal}
+        onClose={() => setSelectedDashboardSignal(null)}
+      />
     </div>
   );
 };
