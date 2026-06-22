@@ -914,7 +914,7 @@ export const ContactAttempts: React.FC = () => {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {[
           { label: 'Scheduled', value: stats.scheduled, icon: Clock, tone: 'bg-blue-500', onClick: () => applyStatusFilter('Scheduled') },
           { label: 'In Progress', value: stats.inProgress, icon: Play, tone: 'bg-yellow-500', onClick: () => applyStatusFilter('In Progress') },

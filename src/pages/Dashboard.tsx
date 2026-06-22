@@ -1070,8 +1070,6 @@ export const Dashboard: React.FC = () => {
   const recoveryEligible = 486;
   const recoveryRecovered = 37;
   const recoveryValue = 148600;
-  const secondChanceForecast = 35600;
-  const dormantVaultValue = 176000;
   const assignmentPressure = Math.round((stats.unassignedLeads / Math.max(stats.newLeads + stats.unassignedLeads, 1)) * 100);
   const latestUpdate = allTodayActivity[0]?.time ?? 'No updates yet';
 
@@ -1245,23 +1243,6 @@ export const Dashboard: React.FC = () => {
         0.52,
       ),
     },
-    {
-      key: 'secondChance',
-      label: 'Second chance',
-      value: `£${secondChanceForecast.toLocaleString()}`,
-      sub: `£${dormantVaultValue.toLocaleString()} dormant vault`,
-      tone: '#16a34a',
-      href: '/second-chance-revenue',
-      signal: makeDashboardSignal(
-        'dashboard-second-chance',
-        'Second-chance revenue',
-        Math.round(secondChanceForecast / 1000),
-        [18, 24, 28, 31, 34, 36],
-        `Base recovery forecast is £${secondChanceForecast.toLocaleString()} with a dormant lead vault worth £${dormantVaultValue.toLocaleString()}.`,
-        'Use Second-Chance Revenue to compare conservative/base/aggressive recovery plans, AI ROI, risk holds and agent recovery performance.',
-        0.48,
-      ),
-    },
   ];
 
   // Quick action handlers
@@ -1404,7 +1385,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.15fr)]">
+          <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.25fr)]">
             <button
               type="button"
               onClick={() => navigate(briefingHero.href)}
@@ -1437,7 +1418,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </button>
 
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-7">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {dashboardBriefingRows.map((row) => (
                 <div
                   key={row.key}
