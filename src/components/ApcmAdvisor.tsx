@@ -60,6 +60,41 @@ const PAGE_MAP: PageEntry[] = [
     prompts: ["Which cohort should we work first?", "Show risky outreach", "Who has capacity today?"],
   },
   {
+    match: "/lifecycle-growth",
+    name: "Lifecycle Growth",
+    opener:
+      "Lifecycle growth is now wider than old-lead recovery: won clients, referrals, repeat matters and dormant history are in one revenue map.",
+    prompts: ["Best lifecycle bucket?", "Referral opportunity?", "Who should own this?"],
+  },
+  {
+    match: "/contact-intelligence",
+    name: "Contact Intelligence",
+    opener:
+      "Contact Intelligence found phone/IP/email signals that can repair bad leads, but 11 repaired-phone cases still need human approval before dialling.",
+    prompts: ["Which contacts are safe?", "Show phone risk", "Best repair rule?"],
+  },
+  {
+    match: "/ai-outreach-command",
+    name: "AI Outreach Command",
+    opener:
+      "AI Outreach has drafts ready, blocked and running. Approve the low-risk quote rescues first; keep contact repairs in review.",
+    prompts: ["Approve what first?", "Show blocked drafts", "AI outreach ROI?"],
+  },
+  {
+    match: "/dormant-lead-vault",
+    name: "Dormant Lead Vault",
+    opener:
+      "The Dormant Vault is where old history becomes searchable money: sort by score, value, source, region and last signal before assigning tasks.",
+    prompts: ["Best dormant leads?", "Highest value old rows?", "Which are risky?"],
+  },
+  {
+    match: "/second-chance-revenue",
+    name: "Second-Chance Revenue",
+    opener:
+      "Second-chance revenue is forecastable now: base plan approvals show the safest value without pushing risky outreach too hard.",
+    prompts: ["Show forecast", "Best ROI channel?", "Where is risk?"],
+  },
+  {
     match: "/matter-progression",
     name: "Matter Progression",
     opener:

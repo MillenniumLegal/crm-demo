@@ -145,6 +145,90 @@ const signalFromWonClient = (client: RecoveryWonClient) => ({
   ],
 });
 
+const signalFromScore = (lead: RecoveryEngineData['scores'][number]) => ({
+  key: `score-${lead.leadId}`,
+  label: `${lead.lead} · recovery score ${lead.score}`,
+  count: lead.score,
+  calls: lead.contactConfidence,
+  sentiment: lead.score >= 85 ? 0.62 : lead.score >= 70 ? 0.28 : -0.1,
+  conversion: { withPct: lead.score, otherPct: 50 },
+  trend: lead.trend,
+  sample: [
+    {
+      agent: lead.agent,
+      lead: lead.lead,
+      date: lead.lastSignal,
+      clientSaid: lead.reason,
+      repReplied: lead.nextBestAction,
+      clientReaction: lead.badges.join(' · '),
+      note: `Value ${money(lead.value)}. Contact confidence ${lead.contactConfidence}%. Risk ${lead.risk}.`,
+    },
+  ],
+});
+
+const signalFromLostReason = (reason: RecoveryEngineData['lostReasons'][number]) => ({
+  key: `lost-${reason.reason}`,
+  label: reason.reason,
+  count: reason.count,
+  calls: reason.count,
+  sentiment: reason.recoveredRate >= 8 ? 0.48 : reason.recoveredRate >= 5 ? 0.16 : -0.12,
+  conversion: { withPct: Math.round(reason.recoveredRate), otherPct: 4 },
+  trend: reason.trend,
+  sample: [
+    {
+      agent: 'APCM AI',
+      lead: reason.reason,
+      date: 'This period',
+      clientSaid: `${fmt(reason.count)} leads worth ${money(reason.value)}`,
+      repReplied: reason.topAction,
+      clientReaction: `${pct(reason.replyRate)} reply · ${pct(reason.recoveredRate)} recovered`,
+      note: 'Use this to choose the next recovery play instead of treating every lost lead the same.',
+    },
+  ],
+});
+
+const signalFromDraft = (draft: RecoveryEngineData['outreachDrafts'][number]) => ({
+  key: `draft-${draft.key}`,
+  label: `${draft.lead} · ${draft.campaign}`,
+  count: draft.expectedReplyRate,
+  calls: 1,
+  sentiment: draft.risk === 'low' ? 0.44 : draft.risk === 'medium' ? 0.08 : -0.28,
+  conversion: { withPct: draft.expectedReplyRate, otherPct: 10 },
+  trend: [8, 10, 12, 14, 16, draft.expectedReplyRate],
+  sample: [
+    {
+      agent: 'APCM AI',
+      lead: draft.lead,
+      date: draft.approvalStatus,
+      clientSaid: draft.subject || draft.campaign,
+      repReplied: draft.body,
+      clientReaction: draft.guardrails.join(' · '),
+      note: `Tone ${draft.tone}. Risk ${draft.risk}. Value ${money(draft.value)}.`,
+    },
+  ],
+});
+
+const signalFromRisk = (risk: RecoveryEngineData['riskSignals'][number]) => ({
+  key: `risk-${risk.key}`,
+  label: risk.label,
+  count: risk.count,
+  calls: risk.count,
+  sentiment: risk.severity === 'high' ? -0.54 : risk.severity === 'medium' ? -0.18 : 0.16,
+  conversion: { withPct: Math.max(0, 100 - risk.count), otherPct: 75 },
+  trend: [risk.count - 4, risk.count - 2, risk.count - 1, risk.count, risk.count + 1, risk.count],
+  sample: [
+    {
+      agent: 'APCM AI',
+      lead: risk.label,
+      date: risk.severity,
+      clientSaid: risk.detail,
+      repReplied: risk.action,
+      clientReaction: 'blocked until reviewed',
+      note: 'Risk controls keep recovery useful without damaging the brand.',
+    },
+  ],
+});
+
 const scaleRecoveryData = (data: RecoveryEngineData, range: string): RecoveryEngineData => ({
   ...data,
   range: rangeLabel(range),
@@ -200,6 +284,61 @@ const scaleRecoveryData = (data: RecoveryEngineData, range: string): RecoveryEng
   wonClients: data.wonClients.map((client) => ({
     ...client,
     expectedValue: scaleRangeMoney(client.expectedValue, range),
+  })),
+  scores: data.scores.map((lead) => ({
+    ...lead,
+    value: scaleRangeMoney(lead.value, range),
+    trend: scaleArray(lead.trend, range),
+  })),
+  lostReasons: data.lostReasons.map((reason) => ({
+    ...reason,
+    count: scaleRangeCount(reason.count, range),
+    value: scaleRangeMoney(reason.value, range),
+    trend: scaleArray(reason.trend, range),
+  })),
+  journeys: data.journeys.map((journey) => ({
+    ...journey,
+    value: scaleRangeMoney(journey.value, range),
+  })),
+  outreachDrafts: data.outreachDrafts.map((draft) => ({
+    ...draft,
+    value: scaleRangeMoney(draft.value, range),
+  })),
+  riskSignals: data.riskSignals.map((signal) => ({
+    ...signal,
+    count: scaleRangeCount(signal.count, range),
+  })),
+  forecastScenarios: data.forecastScenarios.map((scenario) => ({
+    ...scenario,
+    approvals: scaleRangeCount(scenario.approvals, range),
+    aiTouches: scaleRangeCount(scenario.aiTouches, range),
+    replies: scaleRangeCount(scenario.replies, range),
+    recovered: scaleRangeCount(scenario.recovered, range),
+    value: scaleRangeMoney(scenario.value, range),
+  })),
+  agentPerformance: data.agentPerformance.map((agent) => ({
+    ...agent,
+    recovered: scaleRangeCount(agent.recovered, range),
+    value: scaleRangeMoney(agent.value, range),
+    missed: scaleRangeCount(agent.missed, range),
+    trend: scaleArray(agent.trend, range),
+  })),
+  lifecycle: data.lifecycle.map((item) => ({
+    ...item,
+    count: scaleRangeCount(item.count, range),
+    value: scaleRangeMoney(item.value, range),
+  })),
+  contactIntelligence: {
+    signals: data.contactIntelligence.signals.map((signal) => ({
+      ...signal,
+      count: scaleRangeCount(signal.count, range),
+      repaired: scaleRangeCount(signal.repaired, range),
+    })),
+    rules: data.contactIntelligence.rules,
+  },
+  dormantVault: data.dormantVault.map((lead) => ({
+    ...lead,
+    value: scaleRangeMoney(lead.value, range),
   })),
 });
 
@@ -503,6 +642,272 @@ const WonClientPanel: React.FC<{
   </div>
 );
 
+const ScoreBoard: React.FC<{
+  leads: RecoveryEngineData['scores'];
+  onOpen: (lead: RecoveryEngineData['scores'][number]) => void;
+  onLead: (leadId: string) => void;
+}> = ({ leads, onOpen, onLead }) => (
+  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-navy-700" />
+          <h3 className="text-sm font-semibold text-gray-900">Recovery score queue</h3>
+        </div>
+        <p className="mt-0.5 text-xs text-gray-500">Best old/won/bad-contact opportunities ranked by intent, value, risk and contact confidence.</p>
+      </div>
+      <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">best-first</span>
+    </div>
+    <div className="mt-3 divide-y divide-gray-100">
+      {leads.map((lead) => (
+        <button
+          key={lead.leadId}
+          type="button"
+          onClick={() => onOpen(lead)}
+          className="w-full py-3 text-left hover:bg-gray-50"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">{lead.lead}</span>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">{channelLabel(lead.channel)}</span>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">{lead.risk} risk</span>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">{lead.reason}</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {lead.badges.map((badge) => (
+                  <span key={badge} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700">{badge}</span>
+                ))}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-lg font-bold tabular-nums text-gray-900">{lead.score}</div>
+              <div className="text-xs text-gray-500">{money(lead.value)}</div>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onLead(lead.leadId);
+                }}
+                className="mt-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-200"
+              >
+                Lead
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full" style={{ width: `${Math.max(4, lead.score)}%`, backgroundColor: lead.score >= 85 ? '#16a34a' : '#4338ca' }} />
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+const LostReasonPanel: React.FC<{
+  reasons: RecoveryEngineData['lostReasons'];
+  onOpen: (reason: RecoveryEngineData['lostReasons'][number]) => void;
+}> = ({ reasons, onOpen }) => {
+  const maxValue = Math.max(1, ...reasons.map((reason) => reason.value));
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2">
+        <Search className="h-4 w-4 text-navy-700" />
+        <h3 className="text-sm font-semibold text-gray-900">Lost reason intelligence</h3>
+      </div>
+      <p className="mt-0.5 text-xs text-gray-500">Why leads died, how often they answer, and the best play to recover them.</p>
+      <div className="mt-3 space-y-2">
+        {reasons.map((reason) => (
+          <button key={reason.reason} type="button" onClick={() => onOpen(reason)} className="w-full rounded-lg border border-gray-200 p-3 text-left hover:bg-gray-50">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-semibold text-gray-900">{reason.reason}</span>
+              <span className="tabular-nums text-gray-500">{money(reason.value)}</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-full rounded-full" style={{ width: `${Math.max(5, (reason.value / maxValue) * 100)}%`, backgroundColor: reason.recoveredRate >= 8 ? '#16a34a' : reason.recoveredRate >= 5 ? '#f59e0b' : '#4338ca' }} />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+              <span>{fmt(reason.count)} leads</span>
+              <span>{pct(reason.replyRate)} reply</span>
+              <span>{pct(reason.recoveredRate)} recovered</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">{reason.topAction}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const OutreachStudio: React.FC<{
+  drafts: RecoveryEngineData['outreachDrafts'];
+  onOpen: (draft: RecoveryEngineData['outreachDrafts'][number]) => void;
+  onLead: (leadId: string) => void;
+}> = ({ drafts, onOpen, onLead }) => (
+  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-2">
+      <Mail className="h-4 w-4 text-navy-700" />
+      <h3 className="text-sm font-semibold text-gray-900">AI outreach studio</h3>
+    </div>
+    <p className="mt-0.5 text-xs text-gray-500">Approve, block or tune AI-written email, SMS and call scripts before anything goes live.</p>
+    <div className="mt-3 grid gap-3 xl:grid-cols-2">
+      {drafts.map((draft) => (
+        <button key={draft.key} type="button" onClick={() => onOpen(draft)} className="rounded-lg border border-gray-200 p-3 text-left hover:bg-gray-50">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">{draft.lead}</div>
+              <div className="text-xs text-gray-500">{draft.campaign} · {channelLabel(draft.channel)}</div>
+            </div>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">{draft.approvalStatus}</span>
+          </div>
+          {draft.subject && <div className="mt-2 text-xs font-semibold text-gray-700">{draft.subject}</div>}
+          <p className="mt-1 line-clamp-3 text-xs leading-5 text-gray-600">{draft.body}</p>
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold tabular-nums text-green-700">{pct(draft.expectedReplyRate)} expected reply</span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onLead(draft.leadId);
+              }}
+              className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-600 hover:bg-gray-200"
+            >
+              Lead
+            </button>
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+const JourneyTimelinePanel: React.FC<{ journeys: RecoveryEngineData['journeys'] }> = ({ journeys }) => (
+  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-2">
+      <Clock className="h-4 w-4 text-navy-700" />
+      <h3 className="text-sm font-semibold text-gray-900">Recovery journey timelines</h3>
+    </div>
+    <p className="mt-0.5 text-xs text-gray-500">No dead ends: every recovery candidate shows its path from old signal to handover.</p>
+    <div className="mt-3 grid gap-3 xl:grid-cols-3">
+      {journeys.map((journey) => (
+        <div key={journey.leadId} className="rounded-lg border border-gray-200 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">{journey.lead}</div>
+              <div className="text-xs text-gray-500">{journey.stage} · {journey.agent}</div>
+            </div>
+            <span className="text-xs font-semibold tabular-nums text-green-700">{money(journey.value)}</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {journey.steps.map((step) => (
+              <div key={`${journey.leadId}-${step.label}`} className="flex gap-2">
+                <span
+                  className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: step.status === 'done' ? '#16a34a' : step.status === 'current' ? '#4338ca' : '#ef4444' }}
+                />
+                <div>
+                  <div className="text-xs font-semibold text-gray-900">{step.label} <span className="font-normal text-gray-400">· {step.at}</span></div>
+                  <p className="text-xs leading-5 text-gray-500">{step.note}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const RiskBoard: React.FC<{
+  risks: RecoveryEngineData['riskSignals'];
+  onOpen: (risk: RecoveryEngineData['riskSignals'][number]) => void;
+}> = ({ risks, onOpen }) => (
+  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-2">
+      <AlertCircle className="h-4 w-4 text-amber-600" />
+      <h3 className="text-sm font-semibold text-gray-900">Suppression and risk board</h3>
+    </div>
+    <p className="mt-0.5 text-xs text-gray-500">The brakes that stop recovery from becoming noisy, risky or brand-damaging.</p>
+    <div className="mt-3 grid gap-2 md:grid-cols-2">
+      {risks.map((risk) => (
+        <button key={risk.key} type="button" onClick={() => onOpen(risk)} className="rounded-lg border border-gray-200 p-3 text-left hover:bg-gray-50">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">{risk.label}</div>
+              <p className="mt-1 text-xs leading-5 text-gray-500">{risk.detail}</p>
+            </div>
+            <span className="text-lg font-bold tabular-nums" style={{ color: risk.severity === 'high' ? '#ef4444' : risk.severity === 'medium' ? '#f59e0b' : '#16a34a' }}>{fmt(risk.count)}</span>
+          </div>
+          <div className="mt-2 text-xs font-semibold text-navy-700">{risk.action}</div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+const ForecastScenarioPanel: React.FC<{ scenarios: RecoveryEngineData['forecastScenarios'] }> = ({ scenarios }) => (
+  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-2">
+      <Brain className="h-4 w-4 text-navy-700" />
+      <h3 className="text-sm font-semibold text-gray-900">Recovery forecast scenarios</h3>
+    </div>
+    <p className="mt-0.5 text-xs text-gray-500">What happens if Connor approves more drafts today.</p>
+    <div className="mt-3 grid gap-3 md:grid-cols-3">
+      {scenarios.map((scenario, index) => (
+        <div key={scenario.label} className="rounded-lg bg-gray-50 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm font-semibold text-gray-900">{scenario.label}</div>
+            <span className="text-xs font-semibold tabular-nums text-gray-500">{scenario.confidence}% conf.</span>
+          </div>
+          <div className="mt-2 text-2xl font-bold tabular-nums" style={{ color: index === 0 ? '#16a34a' : index === 1 ? '#1e3a8a' : '#f59e0b' }}>{money(scenario.value)}</div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div><span className="text-gray-500">Approvals</span><div className="font-semibold tabular-nums text-gray-900">{fmt(scenario.approvals)}</div></div>
+            <div><span className="text-gray-500">Replies</span><div className="font-semibold tabular-nums text-gray-900">{fmt(scenario.replies)}</div></div>
+            <div><span className="text-gray-500">Recovered</span><div className="font-semibold tabular-nums text-gray-900">{fmt(scenario.recovered)}</div></div>
+            <div><span className="text-gray-500">Touches</span><div className="font-semibold tabular-nums text-gray-900">{fmt(scenario.aiTouches)}</div></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const AgentPerformancePanel: React.FC<{ agents: RecoveryEngineData['agentPerformance'] }> = ({ agents }) => {
+  const maxValue = Math.max(1, ...agents.map((agent) => agent.value));
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-2">
+        <Users className="h-4 w-4 text-navy-700" />
+        <h3 className="text-sm font-semibold text-gray-900">Agent recovery performance</h3>
+      </div>
+      <p className="mt-0.5 text-xs text-gray-500">Human handover speed, approvals and value recovered after AI finds the chance.</p>
+      <div className="mt-3 space-y-3">
+        {agents.map((agent) => (
+          <div key={agent.agent}>
+            <div className="flex items-start justify-between gap-3 text-sm">
+              <div>
+                <div className="font-semibold text-gray-900">{agent.agent}</div>
+                <div className="text-xs text-gray-500">{agent.bestCohort} · {agent.handoverMins}m handover</div>
+              </div>
+              <div className="text-right">
+                <div className="font-semibold tabular-nums text-gray-900">{money(agent.value)}</div>
+                <div className="text-xs text-gray-500">{agent.recovered} recovered</div>
+              </div>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-full rounded-full" style={{ width: `${(agent.value / maxValue) * 100}%`, backgroundColor: '#16a34a' }} />
+            </div>
+            <div className="mt-1 flex justify-between text-xs text-gray-400">
+              <span>{agent.approvalRate}% approval rate</span>
+              <span>{agent.missed} missed handovers</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const RecoveryEngine: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -584,12 +989,17 @@ const RecoveryEngine: React.FC = () => {
 
       <MarketingKpiStrip kpis={activeData.kpis} />
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
         {[
           { label: 'Failed attempts', text: 'No-answer and wrong-number paths feed reconstruction.', href: '/contact-attempts', icon: Phone, color: '#ef4444' },
           { label: 'Recovery replies', text: 'AI outreach replies appear in the unified inbox.', href: '/conversations', icon: MessageSquare, color: '#16a34a' },
           { label: 'Approval workflows', text: 'Outcome-code triggers create drafts, waits and tasks.', href: '/automation', icon: Zap, color: '#f59e0b' },
           { label: 'APCM AI oversight', text: 'AI watches recovery value and risky outreach.', href: '/apcm-ai', icon: Brain, color: '#4338ca' },
+          { label: 'Lifecycle Growth', text: 'Old leads, won clients and repeat opportunities together.', href: '/lifecycle-growth', icon: Sparkles, color: '#16a34a' },
+          { label: 'Contact Intelligence', text: 'Phone, IP, email and duplicate confidence.', href: '/contact-intelligence', icon: Search, color: '#1e3a8a' },
+          { label: 'AI Outreach Command', text: 'Every AI message, call and handover in one queue.', href: '/ai-outreach-command', icon: Mail, color: '#4338ca' },
+          { label: 'Dormant Vault', text: 'Mine old history by score, source, value and risk.', href: '/dormant-lead-vault', icon: Clock, color: '#f59e0b' },
+          { label: 'Second-Chance Revenue', text: 'Executive value, ROI and forecast view.', href: '/second-chance-revenue', icon: Target, color: '#16a34a' },
         ].map((link) => {
           const Icon = link.icon;
           return (
@@ -610,6 +1020,18 @@ const RecoveryEngine: React.FC = () => {
         })}
       </div>
 
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+        <ScoreBoard
+          leads={activeData.scores}
+          onOpen={(lead) => setSelected(signalFromScore(lead))}
+          onLead={(leadId) => navigate(`/lead-management?leadId=${leadId}`)}
+        />
+        <LostReasonPanel
+          reasons={activeData.lostReasons}
+          onOpen={(reason) => setSelected(signalFromLostReason(reason))}
+        />
+      </div>
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <RecoveryFunnel stages={activeData.funnel} />
         <TrendLineChart
@@ -622,6 +1044,14 @@ const RecoveryEngine: React.FC = () => {
           ]}
         />
       </div>
+
+      <OutreachStudio
+        drafts={activeData.outreachDrafts}
+        onOpen={(draft) => setSelected(signalFromDraft(draft))}
+        onLead={(leadId) => navigate(`/lead-management?leadId=${leadId}`)}
+      />
+
+      <JourneyTimelinePanel journeys={activeData.journeys} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
         <CohortTable
@@ -662,6 +1092,16 @@ const RecoveryEngine: React.FC = () => {
           onLead={(leadId) => navigate(`/lead-management?leadId=${leadId}`)}
         />
       </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
+        <RiskBoard
+          risks={activeData.riskSignals}
+          onOpen={(risk) => setSelected(signalFromRisk(risk))}
+        />
+        <ForecastScenarioPanel scenarios={activeData.forecastScenarios} />
+      </div>
+
+      <AgentPerformancePanel agents={activeData.agentPerformance} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.7fr)]">
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

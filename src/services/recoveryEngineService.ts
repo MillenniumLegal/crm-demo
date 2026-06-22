@@ -104,6 +104,139 @@ export interface RecoveryWonClient {
   agent: string;
 }
 
+export interface RecoveryScoreLead {
+  leadId: string;
+  lead: string;
+  score: number;
+  value: number;
+  reason: string;
+  lastSignal: string;
+  contactConfidence: number;
+  risk: 'low' | 'medium' | 'high';
+  agent: string;
+  nextBestAction: string;
+  channel: RecoveryChannel;
+  badges: string[];
+  trend: number[];
+}
+
+export interface RecoveryLostReason {
+  reason: string;
+  count: number;
+  value: number;
+  replyRate: number;
+  recoveredRate: number;
+  topAction: string;
+  trend: number[];
+}
+
+export interface RecoveryJourneyStep {
+  label: string;
+  at: string;
+  status: 'done' | 'current' | 'blocked';
+  note: string;
+}
+
+export interface RecoveryJourney {
+  leadId: string;
+  lead: string;
+  stage: string;
+  value: number;
+  agent: string;
+  steps: RecoveryJourneyStep[];
+}
+
+export interface RecoveryOutreachDraft {
+  key: string;
+  leadId: string;
+  lead: string;
+  channel: RecoveryChannel;
+  campaign: string;
+  variant: string;
+  tone: string;
+  risk: 'low' | 'medium' | 'high';
+  expectedReplyRate: number;
+  approvalStatus: 'ready' | 'needs review' | 'blocked' | 'running';
+  subject?: string;
+  body: string;
+  guardrails: string[];
+  value: number;
+}
+
+export interface RecoveryRiskSignal {
+  key: string;
+  label: string;
+  count: number;
+  severity: 'low' | 'medium' | 'high';
+  detail: string;
+  action: string;
+}
+
+export interface RecoveryForecastScenario {
+  label: string;
+  approvals: number;
+  aiTouches: number;
+  replies: number;
+  recovered: number;
+  value: number;
+  confidence: number;
+}
+
+export interface RecoveryAgentPerformance {
+  agent: string;
+  recovered: number;
+  value: number;
+  approvalRate: number;
+  handoverMins: number;
+  missed: number;
+  bestCohort: string;
+  trend: number[];
+}
+
+export interface LifecycleOpportunity {
+  key: string;
+  label: string;
+  stage: string;
+  count: number;
+  value: number;
+  conversionRate: number;
+  owner: string;
+  nextAction: string;
+  tone: RecoveryTone;
+}
+
+export interface ContactIntelligenceSignal {
+  key: string;
+  label: string;
+  count: number;
+  repaired: number;
+  confidence: number;
+  region: string;
+  note: string;
+}
+
+export interface ContactIntelligenceRule {
+  label: string;
+  impact: string;
+  action: string;
+  tone: RecoveryTone;
+}
+
+export interface DormantLead {
+  leadId: string;
+  lead: string;
+  bucket: string;
+  ageDays: number;
+  value: number;
+  source: string;
+  location: string;
+  score: number;
+  lastSignal: string;
+  risk: 'low' | 'medium' | 'high';
+  nextAction: string;
+  agent: string;
+}
+
 export interface RecoveryFunnelStage {
   label: string;
   count: number;
@@ -132,6 +265,19 @@ export interface RecoveryEngineData {
   agentQueue: RecoveryAgentQueue[];
   aiCalls: RecoveryAiCallMetric[];
   wonClients: RecoveryWonClient[];
+  scores: RecoveryScoreLead[];
+  lostReasons: RecoveryLostReason[];
+  journeys: RecoveryJourney[];
+  outreachDrafts: RecoveryOutreachDraft[];
+  riskSignals: RecoveryRiskSignal[];
+  forecastScenarios: RecoveryForecastScenario[];
+  agentPerformance: RecoveryAgentPerformance[];
+  lifecycle: LifecycleOpportunity[];
+  contactIntelligence: {
+    signals: ContactIntelligenceSignal[];
+    rules: ContactIntelligenceRule[];
+  };
+  dormantVault: DormantLead[];
   advice: RecoveryAdvice[];
 }
 

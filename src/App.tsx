@@ -12,6 +12,13 @@ import Analytics from '@/pages/Analytics';
 import TeamPerformance from '@/pages/TeamPerformance';
 import Marketing from '@/pages/Marketing';
 import RecoveryEngine from '@/pages/RecoveryEngine';
+import {
+  AiOutreachCommandCentre,
+  ContactIntelligenceCentre,
+  DormantLeadVault,
+  LifecycleGrowthEngine,
+  SecondChanceRevenueDashboard,
+} from '@/pages/RecoveryExpansionPages';
 import Email from '@/pages/Email';
 import CallIntel from '@/pages/CallIntel';
 import MatterProgression from '@/pages/MatterProgression';
@@ -161,6 +168,56 @@ function App() {
               <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
                 <Layout>
                   <RecoveryEngine />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lifecycle-growth"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <LifecycleGrowthEngine />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contact-intelligence"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <ContactIntelligenceCentre />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ai-outreach-command"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <AiOutreachCommandCentre />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dormant-lead-vault"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <DormantLeadVault />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/second-chance-revenue"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <SecondChanceRevenueDashboard />
                 </Layout>
               </ProtectedRoute>
             }

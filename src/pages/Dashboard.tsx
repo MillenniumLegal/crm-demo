@@ -1070,6 +1070,8 @@ export const Dashboard: React.FC = () => {
   const recoveryEligible = 486;
   const recoveryRecovered = 37;
   const recoveryValue = 148600;
+  const secondChanceForecast = 35600;
+  const dormantVaultValue = 176000;
   const assignmentPressure = Math.round((stats.unassignedLeads / Math.max(stats.newLeads + stats.unassignedLeads, 1)) * 100);
   const latestUpdate = allTodayActivity[0]?.time ?? 'No updates yet';
 
@@ -1241,6 +1243,23 @@ export const Dashboard: React.FC = () => {
         `${recoveryEligible} old, lost, wrong-number and won-client opportunities are eligible for approval-first recovery.`,
         'Open Recovery Engine to review AI drafts, contact reconstruction, won-client referrals and free-agent task allocation before any outreach goes live.',
         0.52,
+      ),
+    },
+    {
+      key: 'secondChance',
+      label: 'Second chance',
+      value: `£${secondChanceForecast.toLocaleString()}`,
+      sub: `£${dormantVaultValue.toLocaleString()} dormant vault`,
+      tone: '#16a34a',
+      href: '/second-chance-revenue',
+      signal: makeDashboardSignal(
+        'dashboard-second-chance',
+        'Second-chance revenue',
+        Math.round(secondChanceForecast / 1000),
+        [18, 24, 28, 31, 34, 36],
+        `Base recovery forecast is £${secondChanceForecast.toLocaleString()} with a dormant lead vault worth £${dormantVaultValue.toLocaleString()}.`,
+        'Use Second-Chance Revenue to compare conservative/base/aggressive recovery plans, AI ROI, risk holds and agent recovery performance.',
+        0.48,
       ),
     },
   ];
@@ -1418,7 +1437,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </button>
 
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-6">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-7">
               {dashboardBriefingRows.map((row) => (
                 <div
                   key={row.key}
