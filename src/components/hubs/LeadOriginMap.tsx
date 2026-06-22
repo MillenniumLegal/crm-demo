@@ -10,6 +10,7 @@ import {
   rangeLabel,
   scaleRangeCount,
 } from "@/components/analytics/RangeFilter";
+import { SignalDrawer } from "@/components/callinsights/SignalDrawer";
 
 interface Props {
   data: LeadOriginAnalytics;
@@ -127,6 +128,50 @@ const topRows = (rows: Array<{ label: string; count: number; color: string }>) =
   return visible.concat([{ label: "Other UK", count: rest, color: "#94a3b8" }]);
 };
 
+const lookupDrawerItem = (
+  row: LookupRow | null,
+  range: string,
+  totalLeads: number,
+  totalInstructions: number,
+) => {
+  if (!row) return null;
+  const stats = scaleRegion(row.region, range);
+  const regionConversion = Math.round((stats.instructions / Math.max(stats.leads, 1)) * 100);
+  const otherConversion = Math.round(
+    ((totalInstructions - stats.instructions) / Math.max(totalLeads - stats.leads, 1)) * 100,
+  );
+  const hot = row.status.toLowerCase().includes("hot");
+  const trendSeed = Math.max(1, Math.round(stats.leads / 6));
+
+  return {
+    key: `lookup-${row.region.key}-${row.leadId}`,
+    label: `${row.lead} · ${row.city}`,
+    count: stats.leads,
+    calls: 1,
+    sentiment: hot ? 0.72 : 0.31,
+    conversion: { withPct: regionConversion, otherPct: otherConversion },
+    trend: [
+      Math.max(1, trendSeed - 2),
+      Math.max(1, trendSeed - 1),
+      trendSeed,
+      trendSeed + (hot ? 2 : 1),
+      trendSeed + 2,
+      trendSeed + (hot ? 5 : 3),
+    ],
+    sample: [
+      {
+        agent: "APCM GeoIP",
+        lead: row.lead,
+        date: row.createdAt,
+        clientSaid: `${row.ip} resolved to ${row.city}, ${row.region.area}.`,
+        repReplied: `${row.source} ${row.transaction.toLowerCase()} lead. Best local window: ${row.region.bestWindow}.`,
+        clientReaction: row.status,
+        note: `Lookup confidence ${row.region.confidence}%. ${row.region.label} has ${stats.leads} mapped leads and ${stats.instructions} instructions in ${rangeLabel(range)}.`,
+      },
+    ],
+  };
+};
+
 const PieBreakdown: React.FC<{
   title: string;
   caption: string;
@@ -183,11 +228,12 @@ const PieBreakdown: React.FC<{
 };
 
 export const LeadOriginMap: React.FC<Props> = ({ data, onOpenRegion }) => {
-  const [range, setRange] = useState("30d");
+  const [range, setRange] = useState("today");
   const [source, setSource] = useState("All");
   const [transaction, setTransaction] = useState("All");
   const [selectedKey, setSelectedKey] = useState(data.regions[0]?.key ?? "");
   const [query, setQuery] = useState("");
+  const [drawerRow, setDrawerRow] = useState<LookupRow | null>(null);
 
   const sourceOptions = useMemo(() => makeOptions(data.regions, "source"), [data.regions]);
   const transactionOptions = useMemo(() => makeOptions(data.regions, "transaction"), [data.regions]);
@@ -235,6 +281,10 @@ export const LeadOriginMap: React.FC<Props> = ({ data, onOpenRegion }) => {
   const regionRows = aggregateRows(filteredRegions, range, "label");
   const sourceRows = aggregateRows(filteredRegions, range, "source");
   const transactionRows = aggregateRows(filteredRegions, range, "transaction");
+  const drawerItem = useMemo(
+    () => lookupDrawerItem(drawerRow, range, totalLeads, totalInstructions),
+    [drawerRow, range, totalLeads, totalInstructions],
+  );
 
   const changeFilter = (setter: (value: string) => void, value: string) => {
     setter(value);
@@ -424,21 +474,27 @@ export const LeadOriginMap: React.FC<Props> = ({ data, onOpenRegion }) => {
                 );
               })}
 
-              <g transform="translate(18 382)">
-                <circle cx={0} cy={0} r={4} fill="#f97316" stroke="#ffffff" strokeWidth={1.2} />
-                <text x={9} y={4} fontSize={10} fill="#64748b">IP lookup point</text>
-                <circle cx={104} cy={0} r={4.8} fill="#ef4444" stroke="#ffffff" strokeWidth={1.2} />
-                <text x={113} y={4} fontSize={10} fill="#64748b">hot lead</text>
-                <circle cx={190} cy={0} r={8} fill="#1e3a8a" fillOpacity={0.94} stroke="#ffffff" strokeWidth={2} />
-                <text x={204} y={4} fontSize={10} fill="#64748b">regional total</text>
-              </g>
-
               {filteredRegions.length === 0 && (
                 <text x={MAP_W / 2} y={MAP_H / 2} textAnchor="middle" fontSize={13} fill="#64748b">
                   No matching UK lead origins
                 </text>
               )}
             </svg>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#f97316" }} />
+              IP lookup point
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#ef4444" }} />
+              Hot lead
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: "#1e3a8a" }} />
+              Regional total
+            </span>
+            <span className="text-gray-400">Click a region or ledger row for drill-down.</span>
           </div>
         </div>
 
@@ -530,7 +586,7 @@ export const LeadOriginMap: React.FC<Props> = ({ data, onOpenRegion }) => {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-sm font-semibold text-gray-900">IP lookup ledger</div>
-            <div className="text-xs text-gray-500">Selected region by default; search checks every UK lookup.</div>
+            <div className="text-xs text-gray-500">Selected region by default; search checks every UK lookup. Click a row for source and lookup detail.</div>
           </div>
           <label className="relative block w-full sm:w-72">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -564,7 +620,24 @@ export const LeadOriginMap: React.FC<Props> = ({ data, onOpenRegion }) => {
                 </tr>
               ) : (
                 lookupRows.map((row) => (
-                  <tr key={`${row.region.key}-${row.leadId}`} className="border-b border-gray-100 last:border-0">
+                  <tr
+                    key={`${row.region.key}-${row.leadId}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedKey(row.region.key);
+                      setDrawerRow(row);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedKey(row.region.key);
+                        setDrawerRow(row);
+                      }
+                    }}
+                    className="cursor-pointer border-b border-gray-100 outline-none transition-colors last:border-0 hover:bg-gray-50 focus:bg-indigo-50"
+                    style={drawerRow?.leadId === row.leadId ? { backgroundColor: "#eef2ff" } : undefined}
+                  >
                     <td className="py-2 pr-3">
                       <div className="font-semibold text-gray-900">{row.lead}</div>
                       <div className="text-xs text-gray-400">{row.createdAt}</div>
@@ -588,6 +661,7 @@ export const LeadOriginMap: React.FC<Props> = ({ data, onOpenRegion }) => {
           </table>
         </div>
       </div>
+      <SignalDrawer item={drawerItem} onClose={() => setDrawerRow(null)} />
     </div>
   );
 };

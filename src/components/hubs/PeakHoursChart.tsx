@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 
 interface PeakHours {
   hours: string[];
@@ -18,11 +18,72 @@ const COL_LEADS = "#1e3a8a";
 const COL_INSTR = "#16a34a";
 const COL_CALLS = "#0ea5e9";
 
+type WindowKey = "all" | "morning" | "afternoon" | "closing";
+
+const WINDOWS: Array<{ key: WindowKey; label: string }> = [
+  { key: "all", label: "All day" },
+  { key: "morning", label: "Morning" },
+  { key: "afternoon", label: "Afternoon" },
+  { key: "closing", label: "Closing" },
+];
+
+const hourNumber = (label: string) => {
+  const match = label.match(/^(\d+)/);
+  if (!match) return 0;
+  const base = Number(match[1]);
+  if (label.toLowerCase().includes("p") && base !== 12) return base + 12;
+  if (label.toLowerCase().includes("a") && base === 12) return 0;
+  return base;
+};
+
+const inWindow = (label: string, window: WindowKey) => {
+  const hour = hourNumber(label);
+  if (window === "morning") return hour < 12;
+  if (window === "afternoon") return hour >= 12 && hour < 16;
+  if (window === "closing") return hour >= 16;
+  return true;
+};
+
+const highest = (hours: string[], values: number[]) => {
+  if (hours.length === 0) return { label: "—", value: 0 };
+  return hours.reduce(
+    (best, label, index) => {
+      const value = values[index] ?? 0;
+      return value > best.value ? { label, value } : best;
+    },
+    { label: hours[0] ?? "—", value: values[0] ?? 0 },
+  );
+};
+
 export const PeakHoursChart: React.FC<Props> = ({ peak }) => {
-  const hours = peak?.hours ?? [];
-  const leads = peak?.leads ?? [];
-  const instructions = peak?.instructions ?? [];
-  const calls = peak?.calls ?? [];
+  const [windowKey, setWindowKey] = useState<WindowKey>("all");
+  const rawHours = peak?.hours ?? [];
+  const rawLeads = peak?.leads ?? [];
+  const rawInstructions = peak?.instructions ?? [];
+  const rawCalls = peak?.calls ?? [];
+
+  const visible = useMemo(() => {
+    const rows = rawHours
+      .map((label, index) => ({
+        label,
+        leads: rawLeads[index] ?? 0,
+        instructions: rawInstructions[index] ?? 0,
+        calls: rawCalls[index] ?? 0,
+      }))
+      .filter((row) => inWindow(row.label, windowKey));
+
+    return {
+      hours: rows.map((row) => row.label),
+      leads: rows.map((row) => row.leads),
+      instructions: rows.map((row) => row.instructions),
+      calls: rows.map((row) => row.calls),
+    };
+  }, [rawHours, rawLeads, rawInstructions, rawCalls, windowKey]);
+
+  const hours = visible.hours;
+  const leads = visible.leads;
+  const instructions = visible.instructions;
+  const calls = visible.calls;
 
   const max = Math.max(
     0,
@@ -32,6 +93,15 @@ export const PeakHoursChart: React.FC<Props> = ({ peak }) => {
   );
 
   const hasData = hours.length > 0 && max > 0;
+  const leadPeak = highest(hours, leads);
+  const instructionPeak = highest(hours, instructions);
+  const callPeak = highest(hours, calls);
+  const windowLeads = leads.reduce((sum, value) => sum + value, 0);
+  const windowInstructions = instructions.reduce((sum, value) => sum + value, 0);
+  const windowCalls = calls.reduce((sum, value) => sum + value, 0);
+  const conversion = Math.round((windowInstructions / Math.max(windowLeads, 1)) * 100);
+  const callCoverage = Math.round((windowCalls / Math.max(windowLeads, 1)) * 100);
+  const mismatch = callPeak.label !== instructionPeak.label;
 
   // Chart geometry
   const VW = 720;
@@ -62,35 +132,52 @@ export const PeakHoursChart: React.FC<Props> = ({ peak }) => {
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="text-sm font-semibold text-gray-900">Peak hours</div>
           <div className="text-xs text-gray-500">
             When leads come in vs when they instruct
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span className="inline-flex items-center gap-1">
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: COL_LEADS }}
-            />
-            Leads
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: COL_INSTR }}
-            />
-            Instructions
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: COL_CALLS }}
-            />
-            Calls
-          </span>
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+          <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+            {WINDOWS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setWindowKey(option.key)}
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  windowKey === option.key ? "text-white" : "text-gray-500 hover:bg-gray-50"
+                }`}
+                style={windowKey === option.key ? { backgroundColor: "#1e3a8a" } : undefined}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: COL_LEADS }}
+              />
+              Leads
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: COL_INSTR }}
+              />
+              Instructions
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: COL_CALLS }}
+              />
+              Calls
+            </span>
+          </div>
         </div>
       </div>
 
@@ -163,14 +250,40 @@ export const PeakHoursChart: React.FC<Props> = ({ peak }) => {
 
           <div className="mt-3 flex flex-wrap gap-2">
             <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-              Leads {peak.leadPeak}
+              Leads {leadPeak.label}
             </span>
             <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
-              Instructions {peak.instructionPeak}
+              Instructions {instructionPeak.label}
             </span>
             <span className="inline-flex items-center rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700">
-              Calls {peak.callPeak}
+              Calls {callPeak.label}
             </span>
+          </div>
+
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-[11px] font-semibold uppercase text-gray-500">Best next call block</div>
+              <div className="mt-1 text-sm font-semibold text-gray-900">{instructionPeak.label}</div>
+              <div className="text-xs text-gray-500">
+                {instructionPeak.value} instructions from {leadPeak.value} lead peak signals
+              </div>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-[11px] font-semibold uppercase text-gray-500">Call coverage</div>
+              <div className="mt-1 text-sm font-semibold tabular-nums text-gray-900">{callCoverage}%</div>
+              <div className="text-xs text-gray-500">
+                {windowCalls} calls against {windowLeads} leads in this window
+              </div>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-[11px] font-semibold uppercase text-gray-500">Connor note</div>
+              <div className="mt-1 text-sm font-semibold text-gray-900">
+                {mismatch ? "Move cover toward instruction peak" : "Coverage matches the best window"}
+              </div>
+              <div className="text-xs text-gray-500">
+                {conversion}% lead-to-instruction in the selected working window
+              </div>
+            </div>
           </div>
         </>
       )}
