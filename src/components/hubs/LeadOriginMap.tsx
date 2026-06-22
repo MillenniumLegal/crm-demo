@@ -496,6 +496,9 @@ export const LeadOriginMap: React.FC<Props> = ({ data, onOpenRegion }) => {
             </span>
             <span className="text-gray-400">Click a region or ledger row for drill-down.</span>
           </div>
+          <div className="mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs leading-5 text-gray-500">
+            Later: combine reverse IP lookup with phone area code signals so map pins can be placed more accurately when one source is weak or missing.
+          </div>
         </div>
 
         <div className="space-y-3">
