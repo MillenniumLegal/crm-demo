@@ -387,13 +387,13 @@ header .flex.items-center.space-x-3{column-gap:10px !important}
 `;
 
 const THEMES: Theme[] = [
-  { id: 'live', name: 'Live', sub: 'Navy + Purple · clean sans', swatch: ['#011E41', '#9164CC', '#F8F8F9'], kind: 'live' },
   {
     id: 'manuscript', name: 'Manuscript', sub: 'web/admin · warm cream, orange CTA · Plus Jakarta', swatch: ['#EA580C', '#012258', '#F8F6F2'],
     kind: 'design', css: MANUSCRIPT_MV_CSS,
     fontsHref: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Montserrat+Alternates:wght@600;700&display=swap',
     color: { navy: { bg: '#012258', text: '#161412' }, purple: { bg: '#EA580C', text: '#C2410C' }, canvas: { bg: '#F8F6F2' } },
   },
+  { id: 'live', name: 'Live', sub: 'Navy + Purple · clean sans', swatch: ['#011E41', '#9164CC', '#F8F8F9'], kind: 'live' },
   {
     id: 'editorial', name: 'Editorial', sub: 'Cream + gold · serif & mono, light rail', swatch: ['#A87E2E', '#EFEADF', '#F4F1EA'],
     kind: 'design', tagSidebar: true, css: EDITORIAL_CSS,
@@ -567,8 +567,8 @@ function buildUi() {
 
 function init() {
   buildUi();
-  let saved = 'live'; try { saved = localStorage.getItem('demo-theme') || 'live'; } catch (_) {}
-  if (!THEMES.find((t) => t.id === saved)) saved = 'live'; // drop removed themes
+  let saved = 'manuscript'; try { saved = localStorage.getItem('demo-theme') || 'manuscript'; } catch (_) {}
+  if (!THEMES.find((t) => t.id === saved)) saved = 'manuscript'; // drop removed themes
   apply(saved);
   new MutationObserver(scheduleRebuild).observe(document.body, { childList: true, subtree: true });
 }

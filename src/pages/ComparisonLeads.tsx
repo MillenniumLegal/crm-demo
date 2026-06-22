@@ -9,6 +9,8 @@ import {
 import jsPDF from 'jspdf';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { TrendLineChart } from '@/components/trends/TrendLineChart';
+import { ComparisonEngineBand } from '@/components/analytics/ComparisonEngineBand';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -825,6 +827,32 @@ export const ComparisonLeads: React.FC = () => {
         </div>
       </div>
 
+      {/* Daily lead volume trend (reads loaded `leads` page) */}
+      {(() => {
+        const dayCounts = new Map<string, number>();
+        leads.forEach((lead) => {
+          if (!lead.created_at) return;
+          const d = new Date(lead.created_at);
+          if (Number.isNaN(d.getTime())) return;
+          dayCounts.set(fmtDate(d), (dayCounts.get(fmtDate(d)) || 0) + 1);
+        });
+        const perDay = Array.from(dayCounts.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([day, count]) => ({ x: formatDate(day), y: count }));
+        if (perDay.length === 0) return null;
+        return (
+          <TrendLineChart
+            title="Daily lead volume"
+            caption="Leads per day across the loaded page"
+            area
+            series={[{ key: 'leads', label: 'Leads', color: '#1e3a8a', points: perDay }]}
+          />
+        );
+      })()}
+
+      {/* Comparison engine intelligence — per-site performance, funnel, stuck users */}
+      <ComparisonEngineBand />
+
       {/* Firm Rankings (collapsible) */}
       {firmStats.length > 0 && (
         <div className="card">
@@ -852,6 +880,7 @@ export const ComparisonLeads: React.FC = () => {
                     <th className="py-2.5 px-3 text-right">New</th>
                     <th className="py-2.5 px-3 text-right">Callbacks</th>
                     <th className="py-2.5 px-3 text-right">Appeared</th>
+                    <th className="py-2.5 px-3 text-right">Win rate</th>
                     <th className="py-2.5 px-3 text-right">Avg Quote</th>
                   </tr>
                 </thead>
@@ -882,6 +911,19 @@ export const ComparisonLeads: React.FC = () => {
                         <td className="py-2.5 px-3 text-right text-blue-600 font-medium">{fs.newLeads}</td>
                         <td className="py-2.5 px-3 text-right text-gray-600">{fs.callbackLeads}</td>
                         <td className="py-2.5 px-3 text-right text-indigo-600 font-medium">{fs.appearances}</td>
+                        <td className="py-2.5 px-3 text-right text-gray-700">
+                          {(() => {
+                            const winRate = fs.appearances > 0 ? (fs.totalLeads / fs.appearances) * 100 : 0;
+                            return (
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="font-medium text-gray-900 tabular-nums">{winRate.toFixed(0)}%</span>
+                                <span className="inline-block w-16 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#e5e7eb' }}>
+                                  <span className="block h-full rounded-full" style={{ width: `${Math.min(winRate, 100)}%`, backgroundColor: '#1e3a8a' }} />
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td className="py-2.5 px-3 text-right text-gray-700">{formatCurrency(fs.avgQuoteValue)}</td>
                       </tr>
                     );

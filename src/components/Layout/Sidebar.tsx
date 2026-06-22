@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -24,7 +24,30 @@ import {
   Activity,
   ListChecks,
   Wallet,
-  Briefcase
+  Briefcase,
+  PieChart,
+  Trophy,
+  Megaphone,
+  Mail,
+  ShieldCheck,
+  CircleUser,
+  MessagesSquare,
+  Milestone,
+  Coins,
+  ShieldAlert,
+  Store,
+  ClipboardList,
+  Gauge,
+  Heart,
+  Rocket,
+  Scale,
+  LineChart,
+  CalendarClock,
+  Sparkles,
+  ChevronDown,
+  Search,
+  MapPin,
+  Tags
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -55,40 +78,77 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
   const navigationGroups: NavigationGroup[] = [
     {
-      label: 'Work',
+      label: 'Workspace',
       items: [
         { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Agent'] },
-        { name: 'Pipeline Pulse', href: '/pipeline-pulse', icon: Activity, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Daily Pipeline', href: '/daily-pipeline', icon: ListChecks, roles: ['Admin', 'Manager', 'Agent'] },
+        { name: 'My Workspace', href: '/my-workspace', icon: CircleUser, roles: ['Admin', 'Manager', 'Agent'] },
+        { name: 'Pipeline Pulse', href: '/pipeline-pulse', icon: Activity, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Lead Management', href: '/lead-management', icon: Users, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Pick Unassigned Lead', href: '/lead-management?stage=unassigned', icon: Hand, roles: ['Agent'] },
         { name: 'Diary & Tasks', href: '/diary', icon: Calendar, roles: ['Admin', 'Manager', 'Agent'] },
-      ],
-    },
-    {
-      label: 'Intelligence',
-      items: [
-        ...(APCM_AI_ENABLED ? [{ name: 'APCM AI', href: '/apcm-ai', icon: Brain, roles: ['Admin', 'Manager'] as UserRole[] }] : []),
-        { name: 'Call Analysis', href: '/call-analysis', icon: Headphones, roles: ['Admin', 'Manager'] },
         { name: 'Contact Attempts', href: '/contact-attempts', icon: Phone, roles: ['Admin', 'Manager', 'Agent'] },
-        { name: 'Lead Time Tracking', href: '/lead-time-tracking', icon: Clock, roles: ['Admin', 'Manager'] },
+        { name: 'Conversations', href: '/conversations', icon: MessagesSquare, roles: ['Admin', 'Manager', 'Agent'] },
       ],
     },
     {
-      label: 'Commercial',
+      label: 'Money',
       items: [
         { name: 'Finance', href: '/finance', icon: Wallet, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Quotes', href: '/quotes', icon: FileText, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Payments', href: '/payments', icon: CreditCard, roles: ['Admin', 'Manager', 'Agent'] },
         { name: 'Matters', href: '/matters', icon: Briefcase, roles: ['Admin', 'Manager', 'Agent'] },
-        { name: 'Comparison Leads', href: '/comparison-leads', icon: GitCompareArrows, roles: ['Manager'] },
+        { name: 'Revenue Boost', href: '/revenue-boost', icon: Coins, roles: ['Admin', 'Manager'] },
+        { name: 'Lead Resale', href: '/lead-resale', icon: Store, roles: ['Admin', 'Manager'] },
+        { name: 'Resale Queue', href: '/lead-resale-queue', icon: ClipboardList, roles: ['Admin', 'Manager'] },
       ],
     },
     {
-      label: 'Reporting',
+      label: 'Calls & AI',
+      items: [
+        ...(APCM_AI_ENABLED ? [{ name: 'APCM AI', href: '/apcm-ai', icon: Brain, roles: ['Admin', 'Manager'] as UserRole[] }] : []),
+        { name: 'Call Analysis', href: '/call-analysis', icon: Headphones, roles: ['Admin', 'Manager'] },
+        { name: 'Call Intel', href: '/call-intel', icon: ShieldCheck, roles: ['Admin', 'Manager'] },
+        { name: 'Call Insights', href: '/call-insights', icon: Sparkles, roles: ['Admin', 'Manager'] },
+        { name: 'Best Time to Call', href: '/timing', icon: CalendarClock, roles: ['Admin', 'Manager'] },
+      ],
+    },
+    {
+      label: 'Performance',
+      items: [
+        { name: 'Analytics', href: '/analytics', icon: PieChart, roles: ['Admin', 'Manager'] },
+        { name: 'Lead Analytics', href: '/lead-analytics', icon: Search, roles: ['Admin', 'Manager'] },
+        { name: 'Lead Enrichment', href: '/lead-enrichment', icon: MapPin, roles: ['Admin', 'Manager'] },
+        { name: 'Lead Categories', href: '/lead-categories', icon: Tags, roles: ['Admin', 'Manager'] },
+        { name: 'Team', href: '/team', icon: Trophy, roles: ['Admin', 'Manager'] },
+        { name: 'Sales Velocity', href: '/sales-velocity', icon: Rocket, roles: ['Admin', 'Manager'] },
+        { name: 'Capacity', href: '/capacity', icon: Scale, roles: ['Admin', 'Manager'] },
+        { name: 'Client Experience', href: '/client-experience', icon: Heart, roles: ['Admin', 'Manager'] },
+      ],
+    },
+    {
+      label: 'Conveyancing',
+      items: [
+        { name: 'Matter Progression', href: '/matter-progression', icon: Milestone, roles: ['Admin', 'Manager'] },
+        { name: 'Compliance', href: '/compliance', icon: ShieldAlert, roles: ['Admin', 'Manager'] },
+        { name: 'Ops Health', href: '/ops-health', icon: Gauge, roles: ['Admin', 'Manager'] },
+      ],
+    },
+    {
+      label: 'Growth',
+      items: [
+        { name: 'Marketing', href: '/marketing', icon: Megaphone, roles: ['Admin', 'Manager'] },
+        { name: 'Email', href: '/email', icon: Mail, roles: ['Admin', 'Manager'] },
+        { name: 'Comparison Leads', href: '/comparison-leads', icon: GitCompareArrows, roles: ['Manager'] },
+        { name: 'Forecast', href: '/forecast', icon: LineChart, roles: ['Admin', 'Manager'] },
+      ],
+    },
+    {
+      label: 'Reports',
       items: [
         { name: 'Pipeline Reports', href: '/reports', icon: BarChart3, roles: ['Admin', 'Manager'] },
         { name: 'Instructions Report', href: '/reports/instructions', icon: CheckCircle, roles: ['Admin', 'Manager'] },
+        { name: 'Lead Time Tracking', href: '/lead-time-tracking', icon: Clock, roles: ['Admin', 'Manager'] },
       ],
     },
     {
@@ -123,6 +183,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
     return location.pathname === path;
   };
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const isGroupOpen = (group: NavigationGroup) => {
+    if (openGroups[group.label] !== undefined) return openGroups[group.label];
+    return group.label === 'Workspace' || group.items.some((i) => isNavItemActive(i.href));
+  };
+  const toggleGroup = (label: string, currentlyOpen: boolean) =>
+    setOpenGroups((prev) => ({ ...prev, [label]: !currentlyOpen }));
 
   return (
     <>
@@ -178,14 +246,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
             {visibleNavigationGroups.map((group) => (
               <div key={group.label} className="space-y-1">
                 {isOpen ? (
-                  <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">
-                    {group.label}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.label, isGroupOpen(group))}
+                    className="flex w-full items-center justify-between px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35 hover:text-white/60"
+                  >
+                    <span>{group.label}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isGroupOpen(group) ? '' : '-rotate-90'}`} />
+                  </button>
                 ) : (
                   <div className="mx-auto my-2 h-px w-7 bg-white/10" />
                 )}
 
-                {group.items.map((item) => {
+                {(!isOpen || isGroupOpen(group)) && group.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = isNavItemActive(item.href);
 

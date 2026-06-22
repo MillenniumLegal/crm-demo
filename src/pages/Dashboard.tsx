@@ -27,6 +27,7 @@ import { ActivityModal } from '@/components/ActivityModal';
 import { AssignLeadModal } from '@/components/AssignLeadModal';
 import { AttentionStatCard } from '@/components/AttentionStatCard';
 import { ApcmAiDigestCard } from '@/components/ApcmAiDigestCard';
+import { DashboardTrends } from '@/components/trends/DashboardTrends';
 import { APCM_AI_ENABLED } from '@/lib/featureFlags';
 import { fetchTodayActivities, formatActivityForDisplay } from '@/services/activityService';
 import { fetchLeadSummary } from '@/services/leadsService';
@@ -1175,6 +1176,8 @@ export const Dashboard: React.FC = () => {
             );
           })}
         </div>
+
+      {user?.role !== 'Agent' && <DashboardTrends />}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
         {/* Recent Activity - Today's Activity */}

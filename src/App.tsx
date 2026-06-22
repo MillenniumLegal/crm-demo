@@ -8,6 +8,28 @@ import PipelinePulse from '@/pages/PipelinePulse';
 import DailyPipeline from '@/pages/DailyPipeline';
 import Finance from '@/pages/Finance';
 import Matters from '@/pages/Matters';
+import Analytics from '@/pages/Analytics';
+import TeamPerformance from '@/pages/TeamPerformance';
+import Marketing from '@/pages/Marketing';
+import Email from '@/pages/Email';
+import CallIntel from '@/pages/CallIntel';
+import MatterProgression from '@/pages/MatterProgression';
+import AgentWorkspace from '@/pages/AgentWorkspace';
+import Conversations from '@/pages/Conversations';
+import RevenueBoost from '@/pages/RevenueBoost';
+import Compliance from '@/pages/Compliance';
+import LeadResale from '@/pages/LeadResale';
+import LeadResaleQueue from '@/pages/LeadResaleQueue';
+import OpsHealth from '@/pages/OpsHealth';
+import ClientExperience from '@/pages/ClientExperience';
+import SalesVelocity from '@/pages/SalesVelocity';
+import Capacity from '@/pages/Capacity';
+import Forecast from '@/pages/Forecast';
+import Timing from '@/pages/Timing';
+import CallInsights from '@/pages/CallInsights';
+import LeadAnalytics from '@/pages/LeadAnalytics';
+import LeadEnrichment from '@/pages/LeadEnrichment';
+import LeadCategories from '@/pages/LeadCategories';
 import { LeadManagement } from '@/pages/LeadManagement';
 import { Quotes } from '@/pages/Quotes';
 import { Payments } from '@/pages/Payments';
@@ -88,6 +110,226 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Matters />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <Analytics />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/team"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <TeamPerformance />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/marketing"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <Marketing />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/email"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <Email />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/call-intel"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <CallIntel />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/matter-progression"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <MatterProgression />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-workspace"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AgentWorkspace />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/conversations"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Conversations />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/revenue-boost"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <RevenueBoost />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/compliance"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <Compliance />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lead-resale"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <LeadResale />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lead-resale-queue"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <LeadResaleQueue />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ops-health"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <OpsHealth />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client-experience"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <ClientExperience />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sales-velocity"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <SalesVelocity />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/capacity"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <Capacity />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/forecast"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <Forecast />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/timing"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <Timing />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/call-insights"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <CallInsights />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lead-analytics"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <LeadAnalytics />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lead-enrichment"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <LeadEnrichment />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lead-categories"
+            element={
+              <ProtectedRoute allowedRoles={['Admin', 'Manager']}>
+                <Layout>
+                  <LeadCategories />
                 </Layout>
               </ProtectedRoute>
             }

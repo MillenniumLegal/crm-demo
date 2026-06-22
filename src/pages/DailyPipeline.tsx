@@ -6,7 +6,11 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ListTodo, PhoneCall, FileText } from 'lucide-react';
 import { fetchDailyPipeline, DailyPipeline as DailyPipelineData } from '@/services/hubsService';
 import { HubHeroCards } from '@/components/hubs/HubHeroCards';
+import { DaySignalsTrend } from '@/components/hubs/DaySignalsTrend';
+import { PeakHoursChart } from '@/components/hubs/PeakHoursChart';
+import { CallsTodayCard } from '@/components/hubs/CallsTodayCard';
 import { WorklistCard } from '@/components/hubs/WorklistCard';
+import { TrendLineChart } from '@/components/trends/TrendLineChart';
 
 const DailyPipeline: React.FC = () => {
   const navigate = useNavigate();
@@ -22,10 +26,18 @@ const DailyPipeline: React.FC = () => {
     return () => { active = false; };
   }, []);
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="flex h-64 items-center justify-center text-gray-400">
         <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-2 text-gray-500">
+        <p>Couldn&rsquo;t load today&rsquo;s pipeline.</p>
+        <button type="button" onClick={() => window.location.reload()} className="text-sm font-medium text-navy-700 hover:text-navy-900">Retry</button>
       </div>
     );
   }
@@ -40,6 +52,26 @@ const DailyPipeline: React.FC = () => {
       </div>
 
       <HubHeroCards stats={data.hero} onSelect={(href) => { if (href) navigate(href); }} />
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Today&rsquo;s actions</h2>
+        <DaySignalsTrend signals={data.signals} onSelect={(href) => navigate(href)} />
+      </div>
+
+      <TrendLineChart
+        title="How the day is flowing"
+        caption="Leads, instructions &amp; accepted quotes — last 14 days"
+        height={200}
+        series={[
+          { key: 'leads', label: 'Leads', color: '#1e3a8a', points: data.flow.labels.map((x, i) => ({ x, y: data.flow.leads[i] })) },
+          { key: 'instructions', label: 'Instructions', color: '#16a34a', points: data.flow.labels.map((x, i) => ({ x, y: data.flow.instructions[i] })) },
+          { key: 'quotesAccepted', label: 'Quotes accepted', color: '#0ea5e9', points: data.flow.labels.map((x, i) => ({ x, y: data.flow.quotesAccepted[i] })) },
+        ]}
+      />
+
+      <PeakHoursChart peak={data.peakHours} />
+
+      <CallsTodayCard calls={data.calls} onOpen={() => navigate('/call-analysis?preset=today')} />
 
       <div className="grid gap-5 xl:grid-cols-3">
         <WorklistCard title="Today's tasks" items={data.tasks} icon={<ListTodo className="h-4 w-4 text-navy-600" />} emptyText="No tasks due today" />

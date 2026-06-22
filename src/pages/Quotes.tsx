@@ -10,6 +10,7 @@ import { generateQuoteEmailHTML, generateQuoteEmailText } from '@/utils/quoteEma
 import { fetchLeadById, fetchLeadsPage, createLead } from '@/services/leadsService';
 import { Lead } from '@/types';
 import { sendOutlookEmail } from '@/services/outlookService';
+import { StackedDistributionBar } from '@/components/analytics/StackedDistributionBar';
 
 // Quote interface is now imported from quotesService
 
@@ -104,6 +105,11 @@ export const Quotes: React.FC = () => {
     message: ''
   });
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  // Pipeline-wide quotes (ALL quotes, unpaginated) for the "Pipeline totals" KPI card.
+  // Additive: separate from the paginated `quotes` state used by the table + on-page strip.
+  const [allQuotes, setAllQuotes] = useState<Quote[]>([]);
+  const [isLoadingAllQuotes, setIsLoadingAllQuotes] = useState(true);
 
   const historyRecords = useMemo(() => {
     if (!editingQuote) return [] as Quote[];
@@ -535,6 +541,50 @@ const formatCurrency = (value?: number | string | null) => {
   useEffect(() => {
     loadQuotesPage(currentPage);
   }, [loadQuotesPage, currentPage]);
+
+  // Additive: fetch ALL quotes once (unpaginated) to power the pipeline-wide KPI card.
+  // fetchQuotes() with no filters is the legacy full-fetch (returns every quote).
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingAllQuotes(true);
+    fetchQuotes()
+      .then((all) => {
+        if (!cancelled) setAllQuotes(all);
+      })
+      .catch((err) => {
+        console.error('Error loading pipeline-wide quotes:', err);
+        if (!cancelled) setAllQuotes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingAllQuotes(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Additive: pipeline-wide KPIs across ALL quotes (not just the visible page).
+  const pipelineTotals = useMemo(() => {
+    const quoteValue = (q: Quote) => q.totalIncVat ?? q.totalAmount ?? 0;
+    const total = allQuotes.length;
+    const totalQuotedValue = allQuotes.reduce((sum, q) => sum + quoteValue(q), 0);
+    const acceptedQuotes = allQuotes.filter((q) => q.status === 'Accepted');
+    const sentQuotes = allQuotes.filter((q) => q.status === 'Sent');
+    const acceptedValue = acceptedQuotes.reduce((sum, q) => sum + quoteValue(q), 0);
+    // True acceptance rate = Accepted / (Sent + Accepted); guard divide-by-zero.
+    const decisionBase = sentQuotes.length + acceptedQuotes.length;
+    const acceptanceRate = decisionBase > 0 ? (acceptedQuotes.length / decisionBase) * 100 : 0;
+    const averageQuoteValue = total > 0 ? totalQuotedValue / total : 0;
+    return {
+      total,
+      totalQuotedValue,
+      acceptedValue,
+      acceptedCount: acceptedQuotes.length,
+      decisionBase,
+      acceptanceRate,
+      averageQuoteValue,
+    };
+  }, [allQuotes]);
 
   useEffect(() => {
     if (showEditor && isNewQuote && leadSelectionMode === 'existing' && leadOptions.length === 0 && !isLoadingLeads) {
@@ -2823,6 +2873,52 @@ const renderQuoteModal = () => {
         </button>
       </div>
 
+      {/* Pipeline totals (ALL quotes, pipeline-wide — distinct from the on-page strip below) */}
+      <div className="card">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Pipeline totals</h2>
+            <p className="mt-0.5 text-xs text-gray-500">Across all {pipelineTotals.total.toLocaleString()} quotes in the pipeline</p>
+          </div>
+          {isLoadingAllQuotes && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading…
+            </span>
+          )}
+        </div>
+
+        {pipelineTotals.total === 0 ? (
+          <p className="mt-6 text-center text-sm text-gray-400">
+            {isLoadingAllQuotes ? 'Calculating pipeline totals…' : 'No quotes in the pipeline yet'}
+          </p>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-lg bg-gray-50 px-4 py-3">
+              <div className="text-xl font-bold text-gray-900">{formatCurrency(pipelineTotals.totalQuotedValue)}</div>
+              <div className="mt-0.5 text-xs text-gray-600">Total quoted value</div>
+            </div>
+            <div className="rounded-lg bg-green-50 px-4 py-3">
+              <div className="text-xl font-bold" style={{ color: '#16a34a' }}>{formatCurrency(pipelineTotals.acceptedValue)}</div>
+              <div className="mt-0.5 text-xs text-gray-600">Accepted value</div>
+            </div>
+            <div className="rounded-lg bg-blue-50 px-4 py-3">
+              <div className="text-xl font-bold" style={{ color: '#3b82f6' }}>{Math.round(pipelineTotals.acceptanceRate)}%</div>
+              <div className="mt-0.5 text-xs text-gray-600">
+                Acceptance rate
+                <span className="block text-[11px] text-gray-400 tabular-nums">
+                  {pipelineTotals.acceptedCount.toLocaleString()} of {pipelineTotals.decisionBase.toLocaleString()} sent + accepted
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-4 py-3">
+              <div className="text-xl font-bold text-gray-900">{formatCurrency(pipelineTotals.averageQuoteValue)}</div>
+              <div className="mt-0.5 text-xs text-gray-600">Average quote value</div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Loading State */}
       {isLoading && (
         <div className="card text-center py-12">
@@ -2886,6 +2982,21 @@ const renderQuoteModal = () => {
             </select>
           </div>
         </div>
+      </div>
+
+      {/* Quote status funnel */}
+      <div className="mb-6">
+        <StackedDistributionBar
+          title="Quote status"
+          caption="Breakdown of loaded quotes by status"
+          segments={[
+            { label: 'Draft', count: quotes.filter((q) => q.status === 'Draft').length, color: '#94a3b8' },
+            { label: 'Sent', count: quotes.filter((q) => q.status === 'Sent').length, color: '#3b82f6' },
+            { label: 'Accepted', count: quotes.filter((q) => q.status === 'Accepted').length, color: '#16a34a' },
+            { label: 'Rejected', count: quotes.filter((q) => q.status === 'Rejected').length, color: '#ef4444' },
+            { label: 'Expired', count: quotes.filter((q) => q.status === 'Expired').length, color: '#f59e0b' },
+          ]}
+        />
       </div>
 
       {/* Quotes Table */}

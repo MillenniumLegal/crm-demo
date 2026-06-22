@@ -23,6 +23,8 @@ import {
 } from '@/services/reportsService';
 import { fetchUsers, User } from '@/services/usersService';
 import { useAuth } from '@/context/AuthContext';
+import { RankedBarList } from '@/components/analytics/RankedBarList';
+import { InstructionInsightBand } from '@/components/analytics/InstructionInsightBand';
 
 const PAGE_SIZE = 50;
 const UNTRACKED_LABEL = 'Untracked / legacy';
@@ -947,10 +949,55 @@ export const InstructionsAttributionReport: React.FC = () => {
         ))}
       </div>
 
+      <InstructionInsightBand />
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {renderBreakdownTable('Instructions by Credited Agent', 'credited_user')}
         {renderBreakdownTable(sourceBreakdownTitle, 'source')}
       </div>
+
+      <RankedBarList
+        title="Conversion by source"
+        caption={
+          isLeadCreatedView
+            ? 'Lead-to-instruction conversion rate (%) per CRM source.'
+            : 'Instructions marked per CRM source in the selected range.'
+        }
+        defaultTone="info"
+        items={(groupedBreakdowns.source || []).map((row) => ({
+          label: displayTrackedValue(row.dimensionValue),
+          count: row.conversionRate
+            ? Math.round(row.conversionRate)
+            : row.instructedLeads,
+        }))}
+      />
+
+      {isLeadCreatedView && (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <RankedBarList
+            title="Conversion by campaign"
+            caption="Lead-to-instruction conversion rate (%) per campaign."
+            defaultTone="info"
+            items={[...(groupedBreakdowns.utm_campaign || [])]
+              .map((row) => ({
+                label: displayTrackedValue(row.dimensionValue),
+                count: Math.round(row.conversionRate),
+              }))
+              .sort((a, b) => b.count - a.count)}
+          />
+          <RankedBarList
+            title="Conversion by keyword"
+            caption="Lead-to-instruction conversion rate (%) per keyword / search term."
+            defaultTone="info"
+            items={[...(groupedBreakdowns.utm_term || [])]
+              .map((row) => ({
+                label: displayTrackedValue(row.dimensionValue),
+                count: Math.round(row.conversionRate),
+              }))
+              .sort((a, b) => b.count - a.count)}
+          />
+        </div>
+      )}
 
       <div className="space-y-4">
         <div>

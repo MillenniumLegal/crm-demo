@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
 import { FloatingTaskBox } from '@/components/FloatingTaskBox';
-import { ApcmAiFloat } from '@/components/ApcmAiFloat';
+import { ApcmAdvisor } from '@/components/ApcmAdvisor';
 import { useAuth } from '@/context/AuthContext';
 import { fetchOutlookStatus } from '@/services/outlookService';
 import { useLocation } from 'react-router-dom';
@@ -170,8 +170,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Floating Task Box */}
       <FloatingTaskBox />
 
-      {/* APCM AI assistant (managers) — floats above the task box */}
-      <ApcmAiFloat />
+      {/* APCM AI page-advisor — context-aware popup with a cost readout, floats above the task box */}
+      <ApcmAdvisor />
     </div>
   );
 };

@@ -995,6 +995,121 @@ export const SolicitorFirms: React.FC = () => {
         </div>
       )}
 
+      {/* Capacity utilisation leaderboard */}
+      {!isLoading && (() => {
+        const utilisationRows = firms
+          .map((firm) => {
+            const cap = firm.dailyCapacityLimit || 0;
+            const won = dailyLeadCounts[firm.id] || 0;
+            const fillRate = cap > 0 ? won / cap : 0;
+            return { id: firm.id, name: firm.name, cap, won, fillRate };
+          })
+          .filter((r) => r.cap > 0)
+          .sort((a, b) => b.fillRate - a.fillRate);
+
+        if (utilisationRows.length === 0) return null;
+
+        return (
+          <div className="card">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Capacity utilisation</h3>
+              <p className="text-sm text-gray-600">
+                Firms ranked by today's fill rate (leads won vs daily quota)
+              </p>
+            </div>
+            <div className="space-y-3">
+              {utilisationRows.map((r) => {
+                const widthPct = Math.min(100, r.fillRate * 100);
+                const atOrOverCap = r.fillRate >= 1;
+                return (
+                  <div key={r.id} className="flex items-center gap-3">
+                    <span className="w-44 flex-shrink-0 truncate text-sm font-medium text-gray-700" title={r.name}>
+                      {r.name}
+                    </span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="h-2.5 rounded-full transition-all"
+                        style={{
+                          width: `${widthPct}%`,
+                          backgroundColor: atOrOverCap ? '#ef4444' : '#1e3a8a',
+                        }}
+                      />
+                    </div>
+                    <span className="w-14 flex-shrink-0 text-right text-sm tabular-nums text-gray-600">
+                      {r.won}/{r.cap}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Appearance to win */}
+      {!isLoading && (() => {
+        const conversionRows = firms
+          .map((firm) => {
+            const shown = dailyAppearanceCounts[firm.id] || 0;
+            const won = dailyLeadCounts[firm.id] || 0;
+            const winRate = shown > 0 ? won / shown : 0;
+            return { id: firm.id, name: firm.name, shown, won, winRate };
+          })
+          .filter((r) => r.shown > 0)
+          .sort((a, b) => b.winRate - a.winRate);
+
+        if (conversionRows.length === 0) return null;
+
+        const totalShown = conversionRows.reduce((sum, r) => sum + r.shown, 0);
+        const totalWon = conversionRows.reduce((sum, r) => sum + r.won, 0);
+        const overallRate = totalShown > 0 ? Math.round((totalWon / totalShown) * 100) : 0;
+
+        return (
+          <div className="card">
+            <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Appearance to win</h3>
+                <p className="text-sm text-gray-600">
+                  Today's conversion per firm (leads won vs times shown on comparison results)
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{overallRate}%</p>
+                <p className="text-xs text-gray-500">{totalWon} won / {totalShown} shown overall</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {conversionRows.map((r) => {
+                const ratePct = Math.round(r.winRate * 100);
+                const widthPct = Math.min(100, r.winRate * 100);
+                return (
+                  <div key={r.id} className="flex items-center gap-3">
+                    <span className="w-44 flex-shrink-0 truncate text-sm font-medium text-gray-700" title={r.name}>
+                      {r.name}
+                    </span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="h-2.5 rounded-full transition-all"
+                        style={{
+                          width: `${widthPct}%`,
+                          backgroundColor: r.winRate >= 0.5 ? '#16a34a' : '#1e3a8a',
+                        }}
+                      />
+                    </div>
+                    <span className="w-12 flex-shrink-0 text-right text-sm font-semibold tabular-nums text-gray-900">
+                      {ratePct}%
+                    </span>
+                    <span className="w-16 flex-shrink-0 text-right text-xs tabular-nums text-gray-500">
+                      {r.won}/{r.shown}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {!isLoading && firms.length === 0 && (
         <div className="card text-center py-12">
           <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />

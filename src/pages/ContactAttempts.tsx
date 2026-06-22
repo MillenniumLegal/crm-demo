@@ -900,6 +900,122 @@ export const ContactAttempts: React.FC = () => {
         })}
       </div>
 
+      {/* Channel performance (additive analysis card) */}
+      {baseFilteredAttempts.length > 0 && (
+        <div className="card">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Channel performance</h2>
+            <span className="text-xs text-gray-500">{datePresetLabel(datePreset)}</span>
+          </div>
+          <p className="mb-4 text-sm text-gray-600">Completed vs failed attempts per channel</p>
+          <div className="space-y-4">
+            {(['Call', 'SMS', 'Email'] as Array<'Call' | 'SMS' | 'Email'>).map((channel) => {
+              const channelAttempts = baseFilteredAttempts.filter(a => a.attemptType === channel);
+              const completed = channelAttempts.filter(a => a.status === 'Completed').length;
+              const failed = channelAttempts.filter(a => a.status === 'Failed').length;
+              const resolved = completed + failed;
+              const completedPct = resolved > 0 ? (completed / resolved) * 100 : 0;
+              const failedPct = resolved > 0 ? (failed / resolved) * 100 : 0;
+              return (
+                <div key={channel}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 font-medium text-gray-900">
+                      {getTypeIcon(channel)}
+                      {channel}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {completed} completed • {failed} failed
+                      <span className="ml-1 text-gray-400">({channelAttempts.length} total)</span>
+                    </span>
+                  </div>
+                  <div className="flex h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full"
+                      style={{ width: `${completedPct}%`, backgroundColor: '#16a34a' }}
+                      title={`${completed} completed`}
+                    />
+                    <div
+                      className="h-full"
+                      style={{ width: `${failedPct}%`, backgroundColor: '#ef4444' }}
+                      title={`${failed} failed`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#16a34a' }} />
+              Completed
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />
+              Failed
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Attempts to contact (additive analysis card) */}
+      {baseFilteredAttempts.length > 0 && (() => {
+        const attemptBuckets = [
+          { label: '1st attempt', count: baseFilteredAttempts.filter(a => a.attemptNumber === 1).length },
+          { label: '2nd attempt', count: baseFilteredAttempts.filter(a => a.attemptNumber === 2).length },
+          { label: '3rd attempt', count: baseFilteredAttempts.filter(a => a.attemptNumber === 3).length },
+          { label: '4th attempt', count: baseFilteredAttempts.filter(a => a.attemptNumber === 4).length },
+          { label: '5+ attempts', count: baseFilteredAttempts.filter(a => a.attemptNumber >= 5).length },
+        ];
+        const maxedOut = baseFilteredAttempts.filter(a => a.attemptNumber >= a.maxAttempts).length;
+        const rows = [
+          ...attemptBuckets.map(b => ({ ...b, maxed: false })),
+          { label: 'Maxed out', count: maxedOut, maxed: true },
+        ];
+        const maxCount = Math.max(1, ...rows.map(r => r.count));
+        return (
+          <div className="card">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Attempts to contact</h2>
+              <span className="text-xs text-gray-500">{datePresetLabel(datePreset)}</span>
+            </div>
+            <p className="mb-4 text-sm text-gray-600">How many touches it takes to reach a lead</p>
+            <div className="space-y-3">
+              {rows.map((row) => {
+                const widthPct = (row.count / maxCount) * 100;
+                const barColor = row.maxed ? '#ef4444' : '#1e3a8a';
+                return (
+                  <div key={row.label}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span className={`font-medium ${row.maxed ? 'text-red-700' : 'text-gray-900'}`}>
+                        {row.label}
+                      </span>
+                      <span className="text-xs text-gray-500">{row.count}</span>
+                    </div>
+                    <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${widthPct}%`, backgroundColor: barColor, minWidth: row.count > 0 ? '0.5rem' : '0' }}
+                        title={`${row.count} attempt(s)`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#1e3a8a' }} />
+                Attempt count
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />
+                Reached max attempts
+              </span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Filters and Search */}
       <div className="card">
         <div className="mb-4 flex flex-wrap gap-2">

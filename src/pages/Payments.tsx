@@ -19,6 +19,9 @@ import { buildInvoicePdf } from '@/utils/invoicePdf';
 import { supabase } from '@/lib/supabase';
 import { CreateInvoiceModal } from '@/components/CreateInvoiceModal';
 import { SendInvoiceModal } from '@/components/SendInvoiceModal';
+import { RankedBarList } from '@/components/analytics/RankedBarList';
+import { StackedDistributionBar } from '@/components/analytics/StackedDistributionBar';
+import { WeeklyTargetBars } from '@/components/trends/WeeklyTargetBars';
 
 type StatusFilter = 'All' | 'Pending' | 'Sent' | 'Paid' | 'Overdue' | 'Cancelled' | 'Draft';
 type RangeFilter = 'All' | '7' | '30' | '90';
@@ -274,6 +277,124 @@ const Payments: React.FC = () => {
     };
   }, [payments]);
 
+  // Time to pay: for PAID invoices with both an issued and paid date, compute
+  // the number of whole days from issue to payment, then report the average,
+  // fastest and slowest across all such invoices. Negative spans (paid before
+  // issued, e.g. dirty demo data) are skipped. Guards an empty paid set.
+  const timeToPay = useMemo(() => {
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+    const spans: number[] = [];
+    payments.forEach((p) => {
+      if (p.status.toLowerCase() !== 'paid') return;
+      if (!p.issuedAt || !p.paidAt) return;
+      const issued = new Date(p.issuedAt).getTime();
+      const paid = new Date(p.paidAt).getTime();
+      if (Number.isNaN(issued) || Number.isNaN(paid)) return;
+      const days = (paid - issued) / MS_PER_DAY;
+      if (days < 0) return;
+      spans.push(days);
+    });
+    if (spans.length === 0) {
+      return { count: 0, avg: 0, fastest: 0, slowest: 0 };
+    }
+    const total = spans.reduce((sum, d) => sum + d, 0);
+    return {
+      count: spans.length,
+      avg: total / spans.length,
+      fastest: Math.min(...spans),
+      slowest: Math.max(...spans)
+    };
+  }, [payments]);
+
+  // Aged receivables: sum the outstanding amount of UNPAID invoices (Sent or
+  // Overdue) bucketed by how many days past the due date they are.
+  const agedReceivables = useMemo(() => {
+    const buckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
+    const now = Date.now();
+    payments.forEach((p) => {
+      const status = p.status.toLowerCase();
+      if (status !== 'sent' && status !== 'overdue') return;
+      if (!p.dueDate) return;
+      const due = new Date(p.dueDate).getTime();
+      if (Number.isNaN(due)) return;
+      const daysPast = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+      if (daysPast < 0) return; // not yet past due
+      const amt = p.amount || 0;
+      if (daysPast <= 30) buckets['0-30'] += amt;
+      else if (daysPast <= 60) buckets['31-60'] += amt;
+      else if (daysPast <= 90) buckets['61-90'] += amt;
+      else buckets['90+'] += amt;
+    });
+    return [
+      { label: '0-30 days', count: Math.round(buckets['0-30']) },
+      { label: '31-60 days', count: Math.round(buckets['31-60']) },
+      { label: '61-90 days', count: Math.round(buckets['61-90']) },
+      { label: '90+ days', count: Math.round(buckets['90+']) }
+    ];
+  }, [payments]);
+
+  // Invoice status breakdown: count invoices grouped by their (case-insensitive)
+  // status. Zero-count statuses are dropped so only present statuses render.
+  const statusBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    payments.forEach((p) => {
+      const key = (p.status || '').toLowerCase();
+      if (!key) return;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const palette: Array<{ key: string; label: string; color: string }> = [
+      { key: 'paid', label: 'Paid', color: '#16a34a' },
+      { key: 'sent', label: 'Sent', color: '#3b82f6' },
+      { key: 'pending', label: 'Pending', color: '#f59e0b' },
+      { key: 'overdue', label: 'Overdue', color: '#ef4444' },
+      { key: 'draft', label: 'Draft', color: '#94a3b8' },
+      { key: 'cancelled', label: 'Cancelled', color: '#9ca3af' }
+    ];
+    return palette
+      .map((s) => ({ label: s.label, count: counts[s.key] || 0, color: s.color }))
+      .filter((s) => s.count > 0);
+  }, [payments]);
+
+  // Revenue collected: bucket PAID invoices into the last ~8 weeks by paidAt,
+  // summing amount per week. Weeks are Monday-anchored; empty weeks render as 0.
+  const weeklyCollected = useMemo(() => {
+    const WEEKS = 8;
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+    // Monday at 00:00 of the current week, in local time.
+    const startOfWeek = (d: Date) => {
+      const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const day = (out.getDay() + 6) % 7; // 0 = Monday
+      out.setDate(out.getDate() - day);
+      return out;
+    };
+
+    const currentWeekStart = startOfWeek(new Date());
+    const firstWeekStart = new Date(currentWeekStart);
+    firstWeekStart.setDate(firstWeekStart.getDate() - (WEEKS - 1) * 7);
+
+    const totals = new Array(WEEKS).fill(0);
+    payments.forEach((p) => {
+      if (!p.paidAt || p.status.toLowerCase() !== 'paid') return;
+      const paid = new Date(p.paidAt);
+      if (Number.isNaN(paid.getTime())) return;
+      const idx = Math.floor(
+        (startOfWeek(paid).getTime() - firstWeekStart.getTime()) / (MS_PER_DAY * 7)
+      );
+      if (idx < 0 || idx >= WEEKS) return;
+      totals[idx] += p.amount || 0;
+    });
+
+    return totals.map((value, i) => {
+      const weekStart = new Date(firstWeekStart);
+      weekStart.setDate(weekStart.getDate() + i * 7);
+      return {
+        label: weekStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+        value: Math.round(value)
+      };
+    });
+  }, [payments]);
+
   const recentActivity = useMemo(() => {
     return payments.slice(0, 5).map((payment) => ({
       id: payment.id,
@@ -382,7 +503,54 @@ const Payments: React.FC = () => {
             </div>
           </div>
         </div>
+        {user?.role !== 'Agent' && (
+          <div className="card">
+            <div className="flex items-center">
+              <div className="p-3 rounded-lg" style={{ backgroundColor: '#011E41' }}>
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4 min-w-0">
+                <p className="text-sm font-medium text-gray-600">Avg Time to Pay</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {timeToPay.count === 0 ? '—' : `${timeToPay.avg.toFixed(1)} days`}
+                </p>
+                {timeToPay.count > 0 && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Fastest {Math.round(timeToPay.fastest)}d • Slowest {Math.round(timeToPay.slowest)}d
+                    {' '}({timeToPay.count} paid)
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {user?.role !== 'Agent' && (
+        <RankedBarList
+          title="Aged receivables"
+          caption="Outstanding amount on unpaid invoices (Sent / Overdue) by days past due"
+          items={agedReceivables}
+          defaultTone="bad"
+        />
+      )}
+
+      {user?.role !== 'Agent' && (
+        <StackedDistributionBar
+          title="Invoice status"
+          caption="Invoices by status across the current view"
+          segments={statusBreakdown}
+        />
+      )}
+
+      {user?.role !== 'Agent' && (
+        <WeeklyTargetBars
+          title="Revenue collected"
+          caption="Amount collected on paid invoices over the last 8 weeks (by paid date)"
+          bars={weeklyCollected}
+          valueFormat="currency"
+        />
+      )}
 
       <div className="card">
         <div className="flex flex-col sm:flex-row gap-4">

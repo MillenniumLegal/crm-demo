@@ -13,6 +13,8 @@ function iso(daysAgo = 0, h = 9, m = 0) {
   d.setHours(h, m, 0, 0);
   return d.toISOString();
 }
+// UTC date string (YYYY-MM-DD) matching how pages derive "today" (new Date().toISOString().split('T')[0]).
+const ymd = (daysAgo = 0) => new Date(D.getTime() - daysAgo * 86400000).toISOString().split('T')[0];
 const todayMid = (() => { const d = new Date(D); d.setHours(2, 0, 0, 0); return d.toISOString(); })();
 
 export const DEMO_SESSION = {
@@ -56,7 +58,7 @@ const leadDefs = [
   ['Ngozi Eze', 'Call-2', 'New', 'Medium', 'Sale & Purchase', 'Hoowla', 'u-james', {}],
   ['Tunde Bakare', 'Cancelled', 'Closed', 'Low', 'Purchase', 'Direct', 'u-louise', { outcome: 'Gone Elsewhere' }],
 ];
-const LEADS = leadDefs.map((d, i) => {
+const CURATED_LEADS = leadDefs.map((d, i) => {
   const [name, stage, status, priority, tx, source, assigned, f = {}] = d;
   const first = name.toLowerCase().split(' ')[0];
   const createdDaysAgo = i < 5 ? 0 : i < 9 ? 1 : (i % 6) + 1;
@@ -90,6 +92,53 @@ const LEADS = leadDefs.map((d, i) => {
     notes: null,
   };
 });
+// 30-day history layer so page-level trends/funnels (Reports daily + conversion-by-source,
+// Lead Time age, etc.) have real volume + date spread. DEMO-ONLY.
+const HSRC = ['Comparison Site', 'Hoowla', 'Direct', 'Referral', 'Google Ads'];
+const HSRC_CONV = { 'Comparison Site': 0.14, 'Hoowla': 0.12, 'Direct': 0.18, 'Referral': 0.24, 'Google Ads': 0.09 };
+const HISTORY_LEADS = (() => {
+  const out = [];
+  for (let day = 0; day < 30; day++) {
+    const dow = new Date(D.getTime() - day * 86400000).getDay();
+    const weekend = dow === 0 || dow === 6;
+    const count = weekend ? 1 : 2 + (day % 3);
+    for (let k = 0; k < count; k++) {
+      const i = out.length;
+      const source = HSRC[(day * 2 + k) % HSRC.length];
+      const instructed = ((i * 131 + day * 17 + 7) % 100) / 100 < HSRC_CONV[source];
+      const tx = TX[(i + day) % TX.length];
+      const assigned = AGENTS[(i + k) % AGENTS.length].id;
+      const stage = instructed ? 'Instructed' : ['Call-1', 'Call-2', 'Call-3', 'Interested', 'New'][i % 5];
+      const status = instructed ? 'Sold' : (stage === 'Interested' ? 'Interested' : 'New');
+      const pv = 250000 + ((i * 37) % 45) * 10000;
+      const quoted = instructed || i % 3 === 0;
+      const qamount = quoted ? 800 + ((i * 53) % 18) * 50 : null;
+      out.push({
+        id: 'lead-h' + i, short_code: 'ML-' + (10300 + i),
+        name: 'History Lead ' + (i + 1), email: 'hist' + i + '@email.com', phone: '07700 7' + pad(i % 100) + pad((i * 3) % 100),
+        source, status, stage, transaction_type: tx, priority: ['High', 'Medium', 'Low'][i % 3],
+        assigned_to: assigned, assigned_to_name: agentName(assigned),
+        outcome_code: null, custom_outcome_reason: null,
+        instructed_firm: instructed ? 'Millennium Legal' : null,
+        contact_attempts: stage.startsWith('Call-') ? Number(stage.split('-')[1]) : (instructed ? 3 : (i % 5)),
+        max_attempts: 5,
+        property_value: pv, property_tenure: i % 3 === 0 ? 'Leasehold' : 'Freehold', is_mortgaged: i % 4 !== 0,
+        property_address: (i * 5 + 11) + ' Heritage Way', property_region: 'England', property_postcode: 'M' + (i % 25) + ' ' + (i % 9) + 'HX',
+        where_things_up_to: 'In progress',
+        quote_id: quoted ? 'quote-h' + i : null, quote_amount: qamount, quote_status: quoted ? (instructed ? 'Accepted' : 'Sent') : null,
+        quote_accepted_at: instructed ? iso(day, 14, 0) : null,
+        callback_requested: false, callback_status: null, callback_requested_at: null, callback_firm_name: null,
+        instruction_requested: false, instruction_request_status: null, instruction_requested_at: null, instruction_request_firm_name: null,
+        is_manually_instructed: instructed, manual_instructed_at: instructed ? iso(day, 11, 0) : null,
+        is_funnel_archived: false, funnel_archived_category: null,
+        created_at: iso(day, 8 + (k % 9), (i * 7) % 60), updated_at: iso(day, 12, 0), last_action_at: iso(day, 12, 0),
+        notes: null,
+      });
+    }
+  }
+  return out;
+})();
+const LEADS = [...CURATED_LEADS, ...HISTORY_LEADS];
 const leadMini = (id) => { const l = LEADS.find((x) => x.id === id); return l ? { id: l.id, name: l.name, email: l.email, phone: l.phone, short_code: l.short_code, status: l.status, stage: l.stage } : null; };
 
 /* ---------------------------- quotes ----------------------------- */
@@ -107,12 +156,20 @@ const QUOTES = LEADS.filter((l) => l.quote_id).map((l, i) => ({
 
 /* --------------------------- payments ---------------------------- */
 const PSTAT = ['Paid', 'Sent', 'Pending', 'Draft', 'Overdue'];
-const PAYMENTS = LEADS.filter((l) => l.quote_id).slice(0, 6).map((l, i) => ({
-  id: 'pay-' + (i + 1), lead_id: l.id, quote_id: l.quote_id, amount: l.quote_amount, currency: 'GBP',
-  status: PSTAT[i % PSTAT.length], stripe_payment_link: '#', metadata: { description: l.transaction_type + ' — file opening fee' },
-  created_at: iso(i + 4, 9, 0), due_date: iso(i - 3, 17, 0), paid_at: i % PSTAT.length === 0 ? iso(i + 1, 12, 0) : null,
-  leads: leadMini(l.id), quotes: { id: l.quote_id, total_inc_vat: l.quote_amount },
-}));
+const PAYMENTS = LEADS.filter((l) => l.quote_id).slice(0, 28).map((l, i) => {
+  const issuedDaysAgo = 1 + i * 2; // spread ~1..55 days (8 weeks)
+  const paid = i % 4 !== 3; // ~75% paid
+  const overdue = !paid && i % 8 === 7;
+  const status = paid ? 'Paid' : (overdue ? 'Overdue' : 'Sent');
+  const amt = l.quote_amount || (900 + (i % 12) * 80);
+  return {
+    id: 'pay-' + (i + 1), lead_id: l.id, quote_id: l.quote_id, amount: amt, currency: 'GBP',
+    status, stripe_payment_link: '#', metadata: { description: l.transaction_type + ' — file opening fee' },
+    created_at: iso(issuedDaysAgo, 9, 0), issued_at: iso(issuedDaysAgo, 9, 0),
+    due_date: iso(issuedDaysAgo - 14, 17, 0), paid_at: paid ? iso(Math.max(0, issuedDaysAgo - 3), 12, 0) : null,
+    leads: leadMini(l.id), quotes: { id: l.quote_id, total_inc_vat: amt },
+  };
+});
 
 /* ------------------------ solicitor firms ------------------------ */
 const CITIES = ['Manchester', 'Leeds', 'Birmingham', 'London', 'Bristol', 'Liverpool', 'Sheffield', 'Nottingham'];
@@ -131,8 +188,8 @@ const SOLICITOR_FIRMS = Array.from({ length: 8 }).map((_, i) => ({
 /* ------------------------ comparison leads ----------------------- */
 const CSTAT = ['quoted', 'new', 'pushed', 'sold', 'quoted', 'new'];
 const SITES = ['cheapconveyancing', 'themoveexchange', 'compareconveyancingprices'];
-const COMPARISON_LEADS = Array.from({ length: 10 }).map((_, i) => {
-  const nm = ['Olu Martins', 'Priya Shah', 'Daniel Reid', 'Grace Coker', 'Ahmed Khan', 'Lucy Owens', 'Femi Cole', 'Hannah Webb', 'Ravi Patel', 'Mary Quinn'][i];
+const COMPARISON_LEADS = Array.from({ length: 60 }).map((_, i) => {
+  const nm = ['Olu Martins', 'Priya Shah', 'Daniel Reid', 'Grace Coker', 'Ahmed Khan', 'Lucy Owens', 'Femi Cole', 'Hannah Webb', 'Ravi Patel', 'Mary Quinn'][i] || ('Client' + (i + 1) + ' Bankole');
   const [first, last] = nm.split(' ');
   const f = SOLICITOR_FIRMS[i % SOLICITOR_FIRMS.length];
   return {
@@ -144,23 +201,33 @@ const COMPARISON_LEADS = Array.from({ length: 10 }).map((_, i) => {
     status: CSTAT[i % CSTAT.length], source: 'comparison', site_id: SITES[i % 3],
     where_things_up_to: ['Offer accepted (sale)', 'Just researching prices', 'Found a property'][i % 3],
     utm_source: i % 2 ? 'google' : 'bing', utm_campaign: 'Conveyancing-Brand', utm_term: 'conveyancing quote',
-    created_at: iso(0, 6 + (i % 11), (i * 7) % 60), updated_at: iso(0, 12, i),
+    created_at: iso(i % 30, 6 + (i % 11), (i * 7) % 60), updated_at: iso(0, 12, i),
   };
 });
 
 /* --------------------------- diary tasks ------------------------- */
 const TTYPE = ['Call', 'Email', 'SMS', 'Follow-up'];
-const DIARY_TASKS = LEADS.slice(0, 10).map((l, i) => {
-  const overdue = i < 3, today = i >= 3 && i < 6;
-  return {
-    id: 'task-' + (i + 1), lead_id: l.id, assigned_to: l.assigned_to || 'u-louise',
-    task_type: TTYPE[i % TTYPE.length], title: (l.stage.startsWith('Call-') ? l.stage + ' - Follow-up' : 'Follow up'),
-    description: 'Discuss quote and next steps', due_date: iso(overdue ? 1 : today ? 0 : -2, 0, 0).slice(0, 10),
-    due_time: pad(9 + i) + ':00:00', priority: l.priority, status: i === 9 ? 'Completed' : 'Pending',
-    completed_at: i === 9 ? iso(0, 11, 0) : null, created_at: iso(i + 1), updated_at: iso(0),
-    leads: { name: l.name, status: l.status, stage: l.stage },
-  };
-});
+const DIARY_TASKS = (() => {
+  const eligible = LEADS
+    .filter((l) => l.assigned_to && !['Sold', 'Closed', 'Cancelled'].includes(l.status))
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1)) // most-recent first, matching the diary list order
+    .slice(0, 30);
+  return eligible.map((l, i) => {
+    const bucket = i % 4; // 0 overdue, 1 today, 2 upcoming, 3 completed
+    const overdue = bucket === 0, today = bucket === 1, upcoming = bucket === 2, completed = bucket === 3;
+    return {
+      id: 'task-' + (i + 1), lead_id: l.id, assigned_to: l.assigned_to,
+      task_type: TTYPE[i % TTYPE.length], title: l.stage.startsWith('Call-') ? l.stage + ' - Follow-up' : 'Follow up',
+      description: 'Discuss quote and next steps',
+      due_date: ymd(overdue ? 1 + (i % 3) : today ? 0 : upcoming ? -(1 + (i % 4)) : 0),
+      due_time: pad(9 + (i % 8)) + ':00:00', priority: l.priority,
+      status: completed ? 'Completed' : 'Pending',
+      completed_at: completed ? iso(0, 9 + (i % 6), 0) : null,
+      created_at: iso(2 + (i % 5)), updated_at: iso(0),
+      leads: { name: l.name, status: l.status, stage: l.stage },
+    };
+  });
+})();
 
 /* --------------------------- activity log ------------------------ */
 const ACT_TYPES = [
@@ -349,6 +416,46 @@ const DAILY_PIPELINE = {
     { lead: 'Ryan Darlaston', meta: '£410 · sent 5d ago', note: 'Comparing quotes across firms.', tone: 'bad' },
     { lead: 'Julie Robinson', meta: '£160 · sent 2d ago', note: 'Ltd-company freehold sale.', tone: 'good' },
   ],
+  signals: [
+    { key: 'overdue', label: 'Overdue leads', count: 6, prev: 9, delta: -3, direction: 'down', good: true, tone: 'bad', icon: 'clock', href: '/lead-management?pulse=stalled', spark: [12, 11, 10, 9, 10, 8, 9, 8, 7, 8, 7, 6, 7, 6] },
+    { key: 'highPriority', label: 'High priority', count: 7, prev: 6, delta: 1, direction: 'up', good: true, tone: 'warn', icon: 'alert', href: '/lead-management?pulse=hot', spark: [4, 5, 4, 5, 6, 5, 6, 5, 6, 7, 6, 7, 6, 7] },
+    { key: 'callbacks', label: 'Callback requests today', count: 4, prev: 2, delta: 2, direction: 'up', good: true, tone: 'info', icon: 'phone', href: '/diary', spark: [2, 3, 2, 3, 2, 3, 4, 3, 4, 3, 4, 3, 3, 4] },
+    { key: 'instructionReq', label: 'Instruction requests today', count: 3, prev: 1, delta: 2, direction: 'up', good: true, tone: 'info', icon: 'userCheck', href: '/lead-management?pulse=quoted-no-touch', spark: [1, 1, 2, 1, 2, 2, 1, 2, 3, 2, 3, 2, 3, 3] },
+    { key: 'quoteAccepted', label: 'Quote accepted from email', count: 6, prev: 3, delta: 3, direction: 'up', good: true, tone: 'good', icon: 'fileText', href: '/quotes', spark: [2, 3, 2, 4, 3, 4, 3, 5, 4, 5, 4, 5, 6, 6] },
+    { key: 'instructedToday', label: 'Instructed today', count: 9, prev: 6, delta: 3, direction: 'up', good: true, tone: 'good', icon: 'checkCircle', href: '/reports/instructions?preset=today', spark: [4, 5, 6, 5, 7, 6, 7, 6, 8, 7, 9, 8, 8, 9] },
+  ],
+  calls: {
+    made: 218,
+    answered: 142,
+    answerRate: 65,
+    instructionIntent: 32,
+    byHour: [
+      { hour: '9a', calls: 14 },
+      { hour: '10a', calls: 28 },
+      { hour: '11a', calls: 31 },
+      { hour: '12p', calls: 22 },
+      { hour: '1p', calls: 12 },
+      { hour: '2p', calls: 27 },
+      { hour: '3p', calls: 30 },
+      { hour: '4p', calls: 33 },
+      { hour: '5p', calls: 21 },
+    ],
+  },
+  flow: {
+    labels: Array.from({ length: 14 }, (_, i) => { const d = new Date(D.getTime() - (13 - i) * 86400000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }),
+    instructions: [4, 5, 6, 5, 7, 6, 7, 6, 8, 7, 9, 8, 8, 9],
+    leads: [16, 18, 15, 20, 17, 22, 19, 24, 21, 23, 20, 26, 24, 27],
+    quotesAccepted: [2, 3, 2, 4, 3, 4, 3, 5, 4, 5, 4, 5, 6, 6],
+  },
+  peakHours: {
+    hours: ['8a', '9a', '10a', '11a', '12p', '1p', '2p', '3p', '4p', '5p', '6p'],
+    leads: [3, 8, 14, 16, 10, 6, 9, 13, 15, 11, 5],
+    instructions: [1, 2, 3, 4, 2, 1, 5, 7, 8, 6, 3],
+    calls: [9, 14, 28, 31, 22, 12, 27, 30, 33, 21, 9],
+    leadPeak: '10am–12pm',
+    instructionPeak: '2pm–4pm',
+    callPeak: '3pm–4pm',
+  },
 };
 
 /* ----------------------------- finance hub ----------------------------- */
@@ -411,6 +518,1327 @@ const MATTERS = {
     { client: 'Tricia Rose', ref: 'ML-260615-TR', txn: 'Remortgage', value: 295000, stage: 4, status: 'on_track', days: 3, next: 'Exchange target Friday', firm: 'Millennium Legal' },
     { client: 'Karen Howe', ref: 'ML-260602-KH', txn: 'Sale', value: 140000, stage: 4, status: 'needs_action', days: 9, next: 'Buyer slow to exchange — push', firm: 'Millennium Legal' },
     { client: 'Janice Chown', ref: 'ML-260609-JC', txn: 'Sale', value: 280000, stage: 5, status: 'on_track', days: 2, next: 'Completion booked Monday', firm: 'Millennium Legal' },
+  ],
+};
+
+/* ----------------------- firm analytics hub ----------------------- */
+const FIRM_ANALYTICS = {
+  kpis: [
+    { label: 'Time to deposit', value: '4.8 d', sub: 'created → paid', tone: 'info' },
+    { label: 'Time to connect', value: '5h 56m', sub: 'lead → first call', tone: 'warn' },
+    { label: 'Attempts / lead', value: '3.2', sub: 'dials before pickup', tone: 'info' },
+    { label: 'Lead → instruction', value: '13.7%', sub: 'conversion', tone: 'good' },
+    { label: 'In range', value: '293', sub: 'leads, last 30d', tone: 'info' },
+    { label: 'Top objection', value: 'Comparing Quotes', sub: '28 calls · 25% handled', tone: 'bad' },
+  ],
+  lifecycle: [
+    { label: 'New', count: 46, color: '#3b82f6' },
+    { label: 'Contacted', count: 48, color: '#f59e0b' },
+    { label: 'Qualified', count: 29, color: '#8b5cf6' },
+    { label: 'Instructed', count: 23, color: '#22c55e' },
+    { label: 'Lost', count: 19, color: '#ef4444' },
+  ],
+  temperature: {
+    total: 187,
+    segments: [
+      { label: 'Hot', count: 30, color: '#ef4444' },
+      { label: 'Warm', count: 22, color: '#f59e0b' },
+      { label: 'Lukewarm', count: 41, color: '#eab308' },
+      { label: 'Cold', count: 32, color: '#3b82f6' },
+      { label: 'Unset', count: 62, color: '#94a3b8' },
+    ],
+  },
+  sentiment: [
+    { label: 'Very positive', count: 19, tone: 'good' },
+    { label: 'Positive', count: 128, tone: 'good' },
+    { label: 'Neutral', count: 389, tone: 'info' },
+    { label: 'Negative', count: 32, tone: 'bad' },
+    { label: 'Very negative', count: 2, tone: 'bad' },
+  ],
+  objections: [
+    { label: 'Comparing Quotes', count: 28, quote: 'Your quote is £300 more than the firm down the road.' },
+    { label: 'Price', count: 24, quote: 'Are there any sort of fees on top?' },
+    { label: 'Local Firm Preference', count: 22, quote: 'I am looking for a solicitor in Liverpool.' },
+    { label: 'Timing Not Ready', count: 19, quote: 'We just want them quotes at the moment.' },
+    { label: 'Online Firm Hesitation', count: 16, quote: 'I thought you just get online quotes.' },
+    { label: 'Process Uncertainty', count: 13, quote: 'I never sold anything, not quite sure how things work.' },
+  ],
+  questions: [
+    { label: 'Process', count: 27, quote: 'Do I just pay it over the phone, is that okay?' },
+    { label: 'Firm details', count: 13, quote: 'Is your phone number there now?' },
+    { label: 'Pricing', count: 11, quote: 'Do I have stamp duty, or is that all together?' },
+    { label: 'Timescale', count: 9, quote: 'Is it going to be today?' },
+    { label: 'Documentation', count: 4, quote: 'What went on it?' },
+    { label: 'Trust', count: 3, quote: 'So what does it mean for me?' },
+  ],
+  capture: [
+    { label: 'Property status', pct: 21 },
+    { label: 'Offer status', pct: 19 },
+    { label: 'Decision maker', pct: 18 },
+    { label: 'Urgency level', pct: 18 },
+    { label: 'Timescale', pct: 14 },
+    { label: 'Prior conveyancing', pct: 9 },
+    { label: 'Chain position', pct: 7 },
+    { label: 'Mortgage status', pct: 4 },
+  ],
+  commitments: [
+    { action: 'Call back at specified time', total: 68, kept: 54, broken: 3, active: 11 },
+    { action: 'Reply with decision', total: 18, kept: 9, broken: 1, active: 8 },
+    { action: 'Document returned', total: 8, kept: 5, broken: 0, active: 3 },
+    { action: 'Deposit paid', total: 5, kept: 3, broken: 0, active: 2 },
+    { action: 'Partner consultation', total: 6, kept: 2, broken: 1, active: 3 },
+  ],
+  lostReasons: [
+    { label: 'Local firm chosen', count: 8 },
+    { label: 'Went with someone else', count: 7 },
+    { label: 'No longer proceeding', count: 3 },
+    { label: 'Referral firm', count: 1 },
+  ],
+  closeDrivers: [
+    { label: 'Clarity on process', count: 14 },
+    { label: 'No-completion-no-fee', count: 9 },
+    { label: 'Speed / availability', count: 6 },
+    { label: 'Local & accredited', count: 4 },
+  ],
+  followups: [
+    { label: 'Progressed', count: 15, tone: 'good' },
+    { label: 'Held', count: 22, tone: 'info' },
+    { label: 'Stalled', count: 6, tone: 'warn' },
+    { label: 'Lost', count: 6, tone: 'bad' },
+  ],
+  phrases: [
+    { rep: 'Louise', text: 'We have decided to go with you.' },
+    { rep: 'Sarah', text: 'Oh, you sorted it. Okay, no problem.' },
+    { rep: 'Louise', text: 'No problem, I will take you off the list anyway.' },
+    { rep: 'James', text: 'Okay. Well, thank you very much for taking our call today.' },
+    { rep: 'Sarah', text: 'That makes sense, send the quote over and I will get it back to you.' },
+  ],
+  leads: {
+    bySource: [
+      { label: 'Comparison Site', count: 124 },
+      { label: 'Google Ads', count: 42 },
+      { label: 'Direct', count: 41 },
+      { label: 'Hoowla', count: 58 },
+      { label: 'Referral', count: 28 },
+    ],
+    byTransaction: {
+      total: 293,
+      segments: [
+        { label: 'Purchase', count: 118, color: '#3b82f6' },
+        { label: 'Sale', count: 74, color: '#8b5cf6' },
+        { label: 'Sale & Purchase', count: 61, color: '#22c55e' },
+        { label: 'Remortgage', count: 40, color: '#f59e0b' },
+      ],
+    },
+    ageDistribution: [
+      { label: 'Same day', count: 22 },
+      { label: '1 day', count: 14 },
+      { label: '2–3 days', count: 8 },
+      { label: '4–7 days', count: 3 },
+      { label: '7 days+', count: 5 },
+    ],
+    conversionBySource: [
+      { label: 'Referral', pct: 24 },
+      { label: 'Direct', pct: 18 },
+      { label: 'Comparison Site', pct: 14 },
+      { label: 'Hoowla', pct: 12 },
+      { label: 'Google Ads', pct: 9 },
+    ],
+    disqualified: [
+      { label: 'Wrong number', count: 5 },
+      { label: 'Fake / spam', count: 4 },
+      { label: 'Duplicate', count: 3 },
+      { label: 'Out of area', count: 2 },
+    ],
+  },
+};
+
+/* ------------------------ firm trends (momentum) — DEMO ONLY ------------------------ */
+// 30-day daily series + weekly rollups powering the Trends/Momentum visuals.
+// Deterministic (no random) so reloads are stable. ty computes this from real history.
+const FIRM_TRENDS = (() => {
+  const DAYS = 30;
+  const labels: string[] = [];
+  const dows: number[] = [];
+  for (let i = 0; i < DAYS; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - (DAYS - 1 - i));
+    labels.push(d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+    dows.push(d.getDay());
+  }
+  const mk = (base: number, amp: number, driftPct: number, weekendDip: number, floor: number) =>
+    labels.map((_, i) => {
+      const drift = base * driftPct * (i / (DAYS - 1));
+      const wave = Math.sin(i / 2.3) * amp * 0.5 + Math.cos(i / 1.7) * amp * 0.3;
+      const weekend = dows[i] === 0 || dows[i] === 6 ? -weekendDip : 0;
+      return Math.max(floor, Math.round(base + drift + wave + weekend));
+    });
+  const series = {
+    leads: mk(18, 6, 0.35, 7, 2),
+    calls: mk(180, 40, 0.25, 70, 20),
+    instructions: mk(9, 4, 0.45, 4, 0),
+    revenue: mk(2600, 1200, 0.5, 1400, 200),
+    conversion: labels.map((_, i) => Math.round((11 + (i / (DAYS - 1)) * 5 + Math.sin(i / 2.1) * 1.6) * 10) / 10),
+  };
+  const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  const avg = (a: number[]) => (a.length ? sum(a) / a.length : 0);
+  const last14 = (a: number[]) => a.slice(-14);
+  const fmtNum = (n: number) => Math.round(n).toLocaleString('en-GB');
+  const fmtGBP = (n: number) =>
+    n >= 1000000 ? '£' + (n / 1000000).toFixed(1) + 'm' : n >= 1000 ? '£' + (n / 1000).toFixed(1) + 'k' : '£' + Math.round(n);
+  const momentum = [
+    { key: 'leads', label: 'New leads', value: fmtNum(sum(series.leads)), deltaPct: 12, direction: 'up', good: true, spark: last14(series.leads) },
+    { key: 'calls', label: 'Calls made', value: fmtNum(sum(series.calls)), deltaPct: 6, direction: 'up', good: true, spark: last14(series.calls) },
+    { key: 'instructions', label: 'Instructions', value: fmtNum(sum(series.instructions)), deltaPct: 9, direction: 'up', good: true, spark: last14(series.instructions) },
+    { key: 'revenue', label: 'Revenue', value: fmtGBP(sum(series.revenue)), deltaPct: 14, direction: 'up', good: true, spark: last14(series.revenue) },
+    { key: 'conversion', label: 'Conversion', value: avg(series.conversion).toFixed(1) + '%', deltaPct: 3, direction: 'up', good: true, spark: last14(series.conversion) },
+    { key: 'speed', label: 'Speed to lead', value: '3.4h', deltaPct: -18, direction: 'down', good: true, spark: [7.1, 6.8, 6.9, 6.2, 5.8, 6.0, 5.3, 5.1, 4.8, 4.9, 4.2, 3.9, 3.6, 3.4] },
+  ];
+  const weeklyInstructions = [
+    { label: 'W1', value: 58, target: 60 }, { label: 'W2', value: 63, target: 60 },
+    { label: 'W3', value: 55, target: 60 }, { label: 'W4', value: 67, target: 62 },
+    { label: 'W5', value: 71, target: 62 }, { label: 'W6', value: 64, target: 62 },
+    { label: 'W7', value: 74, target: 65 }, { label: 'W8', value: 81, target: 65 },
+  ];
+  const weeklyRevenue = [
+    { label: 'W1', value: 18400, target: 20000 }, { label: 'W2', value: 21200, target: 20000 },
+    { label: 'W3', value: 19600, target: 20000 }, { label: 'W4', value: 23800, target: 21000 },
+    { label: 'W5', value: 25600, target: 21000 }, { label: 'W6', value: 22900, target: 21000 },
+    { label: 'W7', value: 27300, target: 23000 }, { label: 'W8', value: 30100, target: 23000 },
+  ];
+  return { range: 'Last 30 days', labels, series, momentum, weeklyInstructions, weeklyRevenue };
+})();
+
+/* ------------------------ team performance — DEMO ONLY ------------------------ */
+// Per-agent performance roll-up for the Team hub. ty composes this from the call
+// breakdown, AI rep quality, instructions, and quotas; here it is curated.
+const TEAM_AGENTS = [
+  { id: 'u-louise', name: 'Louise Forshaw', initials: 'LF', rank: 1, score: 84, scoreTrend: [74, 75, 76, 78, 80, 79, 81, 82, 83, 84], scoreDelta: 6, conversion: 58, sentiment: 0.34, callsMade: 84, answerRate: 79, instructions: 8, coaching: 78, quotaUsed: 22, quotaTarget: 20, status: 'top', highlight: 'Top performer — should coach others on objection handling', connect: 88, convert: 80, quality: 82, speedToLeadH: 1.8, coachingNote: 'Consistently strong across the board — her objection handling and fast call-backs set the standard. Pair her with James for a shadow session.' },
+  { id: 'u-priya', name: 'Priya Shah', initials: 'PS', rank: 2, score: 76, scoreTrend: [62, 64, 63, 66, 68, 70, 71, 73, 75, 76], scoreDelta: 11, conversion: 44, sentiment: 0.18, callsMade: 71, answerRate: 73, instructions: 6, coaching: 72, quotaUsed: 18, quotaTarget: 20, status: 'top', highlight: 'Most improved this month (+11)', connect: 80, convert: 70, quality: 74, speedToLeadH: 2.6, coachingNote: 'Biggest mover this month (+11). Conversion is climbing as her qualification questions sharpen — give her stretch targets to keep the momentum.' },
+  { id: 'u-sarah', name: 'Sarah Okafor', initials: 'SO', rank: 3, score: 67, scoreTrend: [66, 67, 66, 68, 67, 66, 68, 67, 68, 67], scoreDelta: 1, conversion: 41, sentiment: 0.08, callsMade: 76, answerRate: 71, instructions: 6, coaching: 63, quotaUsed: 17, quotaTarget: 20, status: 'steady', connect: 72, convert: 60, quality: 66, speedToLeadH: 5.5, coachingNote: 'Steady and reliable with high volume, but conversion is flat. A session on closing language could lift her from solid to strong.' },
+  { id: 'u-tom', name: 'Tom Bennett', initials: 'TB', rank: 4, score: 61, scoreTrend: [64, 63, 62, 61, 60, 62, 61, 60, 61, 61], scoreDelta: -3, conversion: 38, sentiment: 0.05, callsMade: 47, answerRate: 66, instructions: 3, coaching: 62, quotaUsed: 14, quotaTarget: 20, status: 'steady', connect: 66, convert: 54, quality: 60, speedToLeadH: 8.2, coachingNote: 'Holding steady but call volume dipped this month. Check workload and dialling cadence before it affects pipeline.' },
+  { id: 'u-james', name: 'James Okoro', initials: 'JO', rank: 5, score: 50, scoreTrend: [59, 56, 55, 53, 52, 51, 50, 49, 50, 50], scoreDelta: -9, conversion: 27, sentiment: -0.12, callsMade: 58, answerRate: 62, instructions: 3, coaching: 50, quotaUsed: 11, quotaTarget: 18, status: 'watch', highlight: 'Needs coaching — 12h speed-to-lead, weak objection handling', connect: 56, convert: 42, quality: 48, speedToLeadH: 12.5, coachingNote: 'Needs coaching now — 12h speed-to-lead and weak objection handling are dragging conversion to 27%. Prioritise call reviews and a speed-to-lead reset this week.' },
+];
+const TEAM_PERFORMANCE = {
+  range: 'Last 30 days',
+  teamMomentum: [
+    { key: 'score', label: 'Team score', value: '68', deltaPct: 4, direction: 'up', good: true, spark: [63, 64, 64, 65, 66, 66, 67, 67, 68, 68] },
+    { key: 'instructions', label: 'Instructions', value: '26', deltaPct: 9, direction: 'up', good: true, spark: [18, 19, 20, 21, 22, 23, 24, 25, 25, 26] },
+    { key: 'conversion', label: 'Avg conversion', value: '42%', deltaPct: 3, direction: 'up', good: true, spark: [37, 38, 38, 39, 40, 40, 41, 41, 42, 42] },
+    { key: 'sentiment', label: 'Avg sentiment', value: '+0.11', deltaPct: 8, direction: 'up', good: true, spark: [4, 5, 5, 6, 7, 8, 9, 10, 11, 11] },
+    { key: 'calls', label: 'Calls made', value: '336', deltaPct: 6, direction: 'up', good: true, spark: [300, 305, 310, 312, 318, 322, 326, 330, 333, 336] },
+    { key: 'answer', label: 'Answer rate', value: '70%', deltaPct: 2, direction: 'up', good: true, spark: [67, 67, 68, 68, 69, 69, 70, 70, 70, 70] },
+  ],
+  agents: TEAM_AGENTS,
+  conversionByAgent: TEAM_AGENTS.map((a) => ({ label: a.name.split(' ')[0], count: a.conversion })).sort((x, y) => y.count - x.count),
+  coachingByAgent: TEAM_AGENTS.map((a) => ({ label: a.name.split(' ')[0], count: a.coaching })).sort((x, y) => y.count - x.count),
+};
+
+/* ----------------------- marketing / ads intelligence — DEMO ONLY ----------------------- */
+const MARKETING = {
+  range: 'Last 30 days',
+  kpis: [
+    { label: 'Ad spend', value: '£4,820', sub: 'Google + Bing', tone: 'info', deltaPct: 6, good: false },
+    { label: 'Paid leads', value: '218', sub: 'from paid clicks', tone: 'good', deltaPct: 12, good: true },
+    { label: 'Instructions', value: '31', sub: 'from paid', tone: 'good', deltaPct: 9, good: true },
+    { label: 'Cost / instruction', value: '£156', sub: 'blended', tone: 'warn', deltaPct: -8, good: true },
+    { label: 'Return on spend', value: '3.1x', sub: 'fee vs spend', tone: 'good', deltaPct: 14, good: true },
+  ],
+  campaigns: [
+    { name: 'Conveyancing-Brand', source: 'Google Ads', spend: 1450, clicks: 620, leads: 64, instructions: 12, cpl: 23, cpi: 121, conversion: 18.8, recommend: 'scale', spark: [6, 7, 8, 7, 9, 8, 10, 9, 11, 10, 12, 11, 12, 12] },
+    { name: 'Sale & Purchase', source: 'Bing', spend: 540, clicks: 240, leads: 31, instructions: 6, cpl: 17, cpi: 90, conversion: 19.4, recommend: 'scale', spark: [3, 4, 3, 4, 5, 4, 5, 4, 5, 6, 5, 6, 6, 6] },
+    { name: 'Leasehold-Push', source: 'Google Ads', spend: 720, clicks: 300, leads: 22, instructions: 5, cpl: 33, cpi: 144, conversion: 22.7, recommend: 'hold', spark: [2, 3, 2, 3, 4, 3, 4, 3, 4, 5, 4, 5, 5, 5] },
+    { name: 'Remortgage-Generic', source: 'Google Ads', spend: 980, clicks: 410, leads: 38, instructions: 4, cpl: 26, cpi: 245, conversion: 10.5, recommend: 'cut', spark: [5, 4, 5, 4, 4, 3, 4, 4, 3, 4, 4, 3, 4, 4] },
+    { name: 'Competitor', source: 'Google Ads', spend: 1130, clicks: 380, leads: 18, instructions: 2, cpl: 63, cpi: 565, conversion: 11.1, recommend: 'cut', spark: [3, 2, 3, 2, 2, 3, 2, 2, 2, 1, 2, 2, 1, 2] },
+  ],
+  keywords: [
+    { keyword: 'house sale solicitor', leads: 22, instructions: 5, conversion: 22.7, cpc: 1.9 },
+    { keyword: 'conveyancing solicitor near me', leads: 28, instructions: 6, conversion: 21.4, cpc: 2.4 },
+    { keyword: 'remortgage solicitor', leads: 18, instructions: 3, conversion: 16.7, cpc: 2.1 },
+    { keyword: 'conveyancing quote online', leads: 41, instructions: 5, conversion: 12.2, cpc: 1.6 },
+    { keyword: 'cheap conveyancing', leads: 34, instructions: 2, conversion: 5.9, cpc: 1.2 },
+  ],
+  pricing: {
+    bands: [
+      { band: 'Under £750', sent: 42, accepted: 9, winRate: 21 },
+      { band: '£750–£1.2k', sent: 68, accepted: 22, winRate: 32 },
+      { band: '£1.2k–£1.8k', sent: 51, accepted: 14, winRate: 27 },
+      { band: '£1.8k+', sent: 24, accepted: 4, winRate: 17 },
+    ],
+    recommendation: 'Win rate peaks at 32% in the £750–£1.2k band. Above £1.8k it drops to 17% — tighten scoping or stage the fee on high-value matters. Sub-£750 quotes (21%) attract price-shoppers; hold the floor.',
+  },
+  funnel: [
+    { label: 'Impressions', count: 48200 },
+    { label: 'Clicks', count: 1950 },
+    { label: 'Leads', count: 218 },
+    { label: 'Quotes sent', count: 142 },
+    { label: 'Instructions', count: 31 },
+  ],
+  sources: [
+    { source: 'Referral', leads: 28, instructions: 7, conversion: 25.0, deltaPct: 4 },
+    { source: 'Bing', leads: 31, instructions: 6, conversion: 19.4, deltaPct: 15 },
+    { source: 'Direct', leads: 35, instructions: 6, conversion: 17.1, deltaPct: -3 },
+    { source: 'Google Ads', leads: 124, instructions: 18, conversion: 14.5, deltaPct: 8 },
+  ],
+  advice: [
+    { severity: 'high', title: 'Reallocate ad budget', text: 'The Competitor campaign costs £565 per instruction — 6× the Sale & Purchase (Bing) campaign at £90. Shift ~£600/mo from Competitor into Sale & Purchase and Brand.' },
+    { severity: 'high', title: 'Cut a price-shopper keyword', text: '"cheap conveyancing" brings volume (34 leads) but only 5.9% convert and they shop on price. Pause or down-bid; redirect spend to "house sale solicitor" (22.7%).' },
+    { severity: 'med', title: 'Pricing sweet spot', text: 'Quotes in £750–£1.2k win 32%. Above £1.8k drop to 17% — review scoping on high-value work.' },
+    { severity: 'med', title: 'Bing is underused', text: 'Bing converts at 19.4% vs Google 14.5% at a lower cost-per-lead. Test a budget increase.' },
+    { severity: 'low', title: 'Time the call-backs', text: 'Paid leads land 10am–12pm but instructions close 2–4pm. Schedule follow-up calls for the early afternoon.' },
+  ],
+};
+
+/* ----------------------- email / deliverability intelligence — DEMO ONLY ----------------------- */
+const MAIL = {
+  range: 'Last 30 days',
+  kpis: [
+    { label: 'Sent', value: '1,284', sub: 'this period', tone: 'info', deltaPct: 8, good: true },
+    { label: 'Delivered', value: '97.2%', sub: '1,248 delivered', tone: 'good', deltaPct: 1, good: true },
+    { label: 'Open rate', value: '41%', sub: '512 opened', tone: 'good', deltaPct: 4, good: true },
+    { label: 'Bounced', value: '2.8%', sub: '36 bounces', tone: 'warn', deltaPct: -1, good: true },
+    { label: 'Spam / junk', value: '1.1%', sub: '14 flagged', tone: 'bad', deltaPct: 2, good: false },
+  ],
+  funnel: [
+    { label: 'Sent', count: 1284 },
+    { label: 'Delivered', count: 1248 },
+    { label: 'Opened', count: 512 },
+    { label: 'Replied', count: 231 },
+  ],
+  issues: [
+    { label: 'Soft bounce', count: 22 },
+    { label: 'Hard bounce', count: 14 },
+    { label: 'Marked spam', count: 14 },
+    { label: 'Send failed', count: 6 },
+  ],
+  openConversion: {
+    openers: { count: 512, instructed: 41, rate: 8.0 },
+    nonOpeners: { count: 736, instructed: 22, rate: 3.0 },
+    note: 'Leads who open our emails instruct at 8.0% — 2.7× the 3.0% for non-openers. Email engagement is a strong intent signal worth surfacing on the lead.',
+  },
+  templates: [
+    { name: 'Welcome / ID request', sent: 140, openRate: 61, bounceRate: 0.7, conversion: 18 },
+    { name: 'Callback confirmation', sent: 188, openRate: 56, bounceRate: 1.1, conversion: 15 },
+    { name: 'Quote follow-up', sent: 312, openRate: 48, bounceRate: 1.9, conversion: 12 },
+    { name: '6pm info email', sent: 420, openRate: 38, bounceRate: 2.1, conversion: 7 },
+    { name: 'Quote reminder', sent: 224, openRate: 35, bounceRate: 3.4, conversion: 9 },
+  ],
+  trend: {
+    labels: Array.from({ length: 14 }, (_, i) => { const d = new Date(D.getTime() - (13 - i) * 86400000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }),
+    sent: [38, 42, 40, 45, 41, 48, 44, 52, 46, 50, 43, 55, 49, 58],
+    opened: [16, 18, 16, 19, 17, 20, 18, 22, 19, 21, 18, 23, 21, 24],
+    bounced: [1, 1, 2, 1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 1],
+  },
+  advice: [
+    { severity: 'high', title: 'Clean the Quote-reminder list', text: '"Quote reminder" bounces at 3.4% (vs 0.7% for Welcome). Stale addresses hurt sender reputation — verify or drop hard-bounced contacts.' },
+    { severity: 'high', title: 'Surface email opens on the lead', text: 'Openers instruct at 8.0% vs 3.0% for non-openers. Flag "opened our email" on the lead so agents prioritise warm contacts.' },
+    { severity: 'med', title: 'Spam is creeping up', text: 'Junk/spam flags rose to 1.1% (+2pp). Review the 6pm info-email content and send volume; warm the sending domain.' },
+    { severity: 'med', title: 'Best send window', text: 'Opens peak 9–10am. Schedule the info and follow-up sends for the morning, not late afternoon.' },
+    { severity: 'low', title: 'Lean into Welcome / ID', text: '61% open and 18% convert — the highest of any template. Make sure every instruction-intent lead receives it.' },
+  ],
+};
+
+/* ----------------------- call intelligence (SOW gaps) — DEMO ONLY ----------------------- */
+// Per-agent CRM Call-1/2/3 marking vs what 3CX actually recorded (SOW 4.6 accountability).
+const CALL_VERIFICATION = {
+  range: 'Yesterday',
+  agents: [
+    { agent: 'Louise Forshaw', marked: 84, verified: 76, markedNoMatch: 5, foundNotMarked: 8, mismatch: 3, verificationRate: 90 },
+    { agent: 'Priya Shah', marked: 71, verified: 66, markedNoMatch: 3, foundNotMarked: 6, mismatch: 2, verificationRate: 93 },
+    { agent: 'Sarah Okafor', marked: 76, verified: 64, markedNoMatch: 9, foundNotMarked: 4, mismatch: 3, verificationRate: 84 },
+    { agent: 'Tom Bennett', marked: 47, verified: 41, markedNoMatch: 4, foundNotMarked: 2, mismatch: 0, verificationRate: 87 },
+    { agent: 'James Okoro', marked: 58, verified: 39, markedNoMatch: 14, foundNotMarked: 3, mismatch: 2, verificationRate: 67 },
+  ],
+  note: 'James marked 14 calls with no matching 3CX record yesterday (24% of his marks). Worth a review before trusting his Call-1/2/3 figures.',
+};
+// Inbound Calls Overview, separate from outbound; IVR Option 1 (sales) vs Option 3 (post-sale).
+const INBOUND_OVERVIEW = {
+  kpis: [
+    { label: 'Calls received', value: '142', sub: 'today', tone: 'info', deltaPct: 5, good: true },
+    { label: 'Answered', value: '118', sub: '83%', tone: 'good', deltaPct: 3, good: true },
+    { label: 'Missed', value: '18', sub: '13%', tone: 'warn', deltaPct: -2, good: true },
+    { label: 'Speed to answer', value: '14s', sub: 'avg', tone: 'good', deltaPct: -9, good: true },
+    { label: 'Became instructions', value: '9', sub: 'from inbound', tone: 'good', deltaPct: 12, good: true },
+  ],
+  optionSplit: { option1: 96, option3: 46 },
+  outcome: [
+    { label: 'Answered', count: 118 },
+    { label: 'Missed', count: 18 },
+    { label: 'Abandoned', count: 6 },
+  ],
+  byHour: [
+    { hour: '8a', calls: 6 }, { hour: '9a', calls: 14 }, { hour: '10a', calls: 19 }, { hour: '11a', calls: 17 },
+    { hour: '12p', calls: 11 }, { hour: '1p', calls: 8 }, { hour: '2p', calls: 15 }, { hour: '3p', calls: 18 },
+    { hour: '4p', calls: 16 }, { hour: '5p', calls: 12 }, { hour: '6p', calls: 6 },
+  ],
+};
+// Callback request → contacted → completed → quote-accepted → instructed (SOW 4.1).
+const CALLBACK_FUNNEL = {
+  range: 'Last 30 days',
+  stages: [
+    { label: 'Requested', count: 86 },
+    { label: 'Contacted', count: 71 },
+    { label: 'Completed', count: 58 },
+    { label: 'Quote accepted', count: 31 },
+    { label: 'Instructed', count: 22 },
+  ],
+  winRate: 26,
+};
+// One agent's full day — the SOW "Agent Dashboard & AI Coaching" (Option A) per-agent view.
+const AGENT_DAY = {
+  agent: 'Louise Forshaw',
+  date: 'Yesterday',
+  tiles: [
+    { label: 'Assigned today', value: '6' }, { label: 'Active leads', value: '23' },
+    { label: 'Unique attempted', value: '38' }, { label: 'Outbound calls', value: '84' },
+    { label: 'Meaningful convos', value: '31' }, { label: 'Voicemail', value: '15' },
+    { label: 'Contact rate', value: '74%' }, { label: 'Call 1 / 2 / 3', value: '30 / 22 / 14' },
+    { label: 'Follow-ups due', value: '7' }, { label: 'High-intent', value: '5' },
+    { label: 'Official instructions', value: '8' }, { label: 'Inbound Option 1', value: '12' },
+  ],
+  coaching: [
+    { tone: 'good', text: 'Strong objection handling on the Comparing-Quotes calls — 4 of 5 turned around. Keep leading with value before price.' },
+    { tone: 'warn', text: 'Missed the no-estate-agent USP on 3 purchase calls where it would have landed.' },
+    { tone: 'bad', text: '2 calls ended with no clear next action — set a callback or task before hanging up.' },
+  ],
+  actions: [
+    'Call back Karen Howe — promised a decision today',
+    'Chase Folake Bello — quote accepted, not yet instructed',
+    'Complete the overdue Call 3 for Chidi Okeke',
+    'Follow up 5 high-intent leads not yet instructed',
+  ],
+};
+// Instruction-report trends + period-over-period comparison (the "compare with the past"
+// layer the snapshot report lacked) incl. SOW Sale/Purchase/Both unit counting.
+const INSTRUCTION_INSIGHTS = {
+  range: 'Last 30 days',
+  kpis: [
+    { label: 'Instruction units', value: '68', sub: 'vs 59 prior 30d', tone: 'good', deltaPct: 15, good: true },
+    { label: 'Lead → instruction', value: '13.4%', sub: 'vs 11.9% prior', tone: 'good', deltaPct: 13, good: true },
+    { label: 'Sale + Purchase (×2)', value: '11', sub: 'dual-unit instructions', tone: 'info', deltaPct: 10, good: true },
+    { label: 'Avg / working day', value: '2.9', sub: 'vs 2.5 prior', tone: 'good', deltaPct: 16, good: true },
+  ],
+  trend: {
+    labels: Array.from({ length: 14 }, (_, i) => { const d = new Date(D.getTime() - (13 - i) * 86400000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }),
+    current: [3, 2, 4, 3, 5, 2, 4, 3, 4, 5, 3, 6, 4, 5],
+    prior: [2, 3, 2, 4, 2, 3, 3, 2, 4, 3, 2, 4, 3, 4],
+  },
+  unitSplit: [
+    { label: 'Sale only (×1)', count: 24 },
+    { label: 'Purchase only (×1)', count: 17 },
+    { label: 'Sale + Purchase (×2)', count: 11 },
+    { label: 'Remortgage (×1)', count: 5 },
+  ],
+  sourceMovers: [
+    { label: 'Google Ads', now: 19, prev: 12, deltaPct: 58 },
+    { label: 'The Move Exchange', now: 16, prev: 18, deltaPct: -11 },
+    { label: 'Hoowla', now: 11, prev: 7, deltaPct: 57 },
+    { label: 'Direct', now: 9, prev: 10, deltaPct: -10 },
+    { label: 'Referral', now: 8, prev: 7, deltaPct: 14 },
+  ],
+};
+
+// Finance — revenue trend, breakdown, KPIs vs prior + the APCM AI finance coach
+// (set a monthly target → pace-to-target + pushy advice). DEMO ONLY.
+const FINANCE_INSIGHTS = {
+  month: 'June 2026',
+  kpis: [
+    { label: 'Revenue (MTD)', value: '£52.4k', sub: 'vs £47.8k same day last mo', tone: 'good', deltaPct: 10, good: true },
+    { label: 'Collected', value: '£34.0k', sub: '65% of billed', tone: 'good', deltaPct: 5, good: true },
+    { label: 'Outstanding', value: '£18.4k', sub: '3 invoices 30d+', tone: 'warn', deltaPct: -3, good: true },
+    { label: 'Avg matter fee', value: '£1,180', sub: 'vs £1,120 last mo', tone: 'good', deltaPct: 5, good: true },
+  ],
+  revenue6mo: {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    values: [58200, 63100, 59800, 71200, 68400, 52400],
+  },
+  byType: [
+    { label: 'Purchase', count: 24800 },
+    { label: 'Sale', count: 18200 },
+    { label: 'Sale & Purchase', count: 6900 },
+    { label: 'Remortgage', count: 2500 },
+  ],
+  coach: {
+    mtdRevenue: 52400,
+    workingDaysElapsed: 15,
+    workingDaysTotal: 22,
+    lastMonthRevenue: 71200,
+    defaultTarget: 80000,
+    acceptedNotInstructed: { count: 5, value: 8600 },
+    watching: [
+      '5 accepted quotes not yet instructed — £8.6k of fees waiting on a signature',
+      '£18.4k billed but unpaid — 3 invoices are over 30 days',
+      'Purchase fees up 9% — your strongest margin line this month',
+    ],
+  },
+};
+
+// Comparison engine intelligence — which site performs, the quote-engine funnel, and
+// where users get stuck (abandon). DEMO ONLY.
+const COMPARISON_ENGINE = {
+  range: 'Last 30 days',
+  topSite: 'The Move Exchange',
+  sites: [
+    { site: 'The Move Exchange', started: 240, submitted: 142, callbacks: 38, instructions: 19, conversion: 13.4, avgQuote: 1180, deltaPct: 12 },
+    { site: 'Cheap Conveyancing', started: 198, submitted: 98, callbacks: 21, instructions: 9, conversion: 9.2, avgQuote: 980, deltaPct: -6 },
+    { site: 'Compare Conveyancing Prices', started: 174, submitted: 71, callbacks: 16, instructions: 8, conversion: 11.1, avgQuote: 1090, deltaPct: 8 },
+  ],
+  funnel: [
+    { label: 'Started quote', count: 612 },
+    { label: 'Entered details', count: 503 },
+    { label: 'Saw quote', count: 411 },
+    { label: 'Submitted lead', count: 311 },
+    { label: 'Requested callback', count: 96 },
+    { label: 'Instructed', count: 41 },
+  ],
+  stuck: [
+    { step: 'Dropped at property details', count: 109, pct: 18 },
+    { step: 'Left before seeing a quote', count: 92, pct: 15 },
+    { step: 'Saw the quote, never submitted', count: 100, pct: 16 },
+  ],
+  trend: {
+    labels: Array.from({ length: 14 }, (_, i) => { const d = new Date(D.getTime() - (13 - i) * 86400000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }),
+    current: [9, 11, 8, 12, 10, 13, 11, 14, 12, 13, 11, 16, 13, 15],
+    prior: [8, 9, 7, 10, 8, 9, 10, 9, 11, 10, 9, 11, 10, 12],
+  },
+  note: 'The Move Exchange converts best (13.4%, ▲12%). But 16% who see a quote never submit — a "save / email me my quote" step could recover ~100 leads a month.',
+};
+
+// Matter / case progression — the post-instruction conveyancing pipeline (the biggest gap
+// the demo had: it stopped at instruction). Stages, time-in-stage vs benchmark, SLA
+// breaches, exchange/completion key dates, and fall-through trend. DEMO ONLY.
+const MATTER_PROGRESSION = {
+  range: 'Live',
+  kpis: [
+    { label: 'Active matters', value: '89', sub: 'in progress', tone: 'info', deltaPct: 6, good: true },
+    { label: 'Avg to completion', value: '74d', sub: 'vs 81d last qtr', tone: 'good', deltaPct: -9, good: true },
+    { label: 'Fall-through rate', value: '9.4%', sub: 'vs 11.2% last qtr', tone: 'good', deltaPct: -16, good: true },
+    { label: 'Completing this month', value: '12', sub: 'forecast 15', tone: 'good', deltaPct: 20, good: true },
+  ],
+  stages: [
+    { label: 'Instructed / opening', count: 18, medianDays: 3, benchmarkDays: 4 },
+    { label: 'Searches ordered', count: 14, medianDays: 9, benchmarkDays: 10 },
+    { label: 'Enquiries raised', count: 22, medianDays: 16, benchmarkDays: 14 },
+    { label: 'Mortgage offer', count: 11, medianDays: 21, benchmarkDays: 20 },
+    { label: 'Report & sign', count: 8, medianDays: 6, benchmarkDays: 7 },
+    { label: 'Exchanged', count: 6, medianDays: 4, benchmarkDays: 5 },
+    { label: 'Completed (this mo)', count: 12, medianDays: 0, benchmarkDays: 0 },
+  ],
+  slaBreaches: [
+    { matter: 'Okeke purchase — 14 Elm Rd', stage: 'Enquiries', overdueDays: 6, owner: 'Louise' },
+    { matter: 'Bello sale — 7 Oak Ave', stage: 'Searches', overdueDays: 4, owner: 'Sarah' },
+    { matter: 'Khan remortgage — 22 Birch Cl', stage: 'Mortgage offer', overdueDays: 3, owner: 'James' },
+    { matter: 'Owusu purchase — 9 Maple Dr', stage: 'Enquiries', overdueDays: 2, owner: 'Louise' },
+  ],
+  keyDates: [
+    { matter: 'Chen remortgage', event: 'Completion', when: 'Overdue 1 day', rag: 'bad' },
+    { matter: 'Howe purchase', event: 'Completion', when: 'In 2 days', rag: 'amber' },
+    { matter: 'Adeyemi sale', event: 'Exchange', when: 'In 5 days', rag: 'good' },
+    { matter: 'Mensah purchase', event: 'Exchange', when: 'In 6 days', rag: 'good' },
+    { matter: 'Patel sale', event: 'Completion', when: 'In 8 days', rag: 'good' },
+  ],
+  fallThroughTrend: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], values: [12.1, 11.8, 10.9, 11.2, 10.1, 9.4] },
+  fallThroughByType: [
+    { label: 'Purchase', count: 11 }, { label: 'Sale', count: 7 }, { label: 'Sale & Purchase', count: 4 }, { label: 'Remortgage', count: 2 },
+  ],
+};
+
+// Agent workspace — the LIVE AGENT view (role-scoped): the agent's own day, personal
+// targets/pace, lead worklist, and their instructions. DEMO ONLY.
+const AGENT_WORKSPACE = {
+  agent: 'Louise Forshaw',
+  day: AGENT_DAY,
+  targets: {
+    instructions: { mtd: 8, target: 12 },
+    calls: { today: 84, target: 80 },
+    conversion: { value: 14.2, target: 12.5 },
+    rank: 2, of: 6,
+    note: '4 instructions to target — you have 5 high-intent leads and 5 accepted quotes within reach. Clear those and you top the board.',
+  },
+  myLeads: [
+    { name: 'Karen Howe', stage: 'Quote sent', priority: 'high', next: 'Promised a decision today — call back', value: 1180 },
+    { name: 'Folake Bello', stage: 'Quote accepted', priority: 'high', next: 'Accepted — send the instruction pack', value: 1340 },
+    { name: 'Chidi Okeke', stage: 'Contacted', priority: 'med', next: 'Overdue Call 3', value: 980 },
+    { name: 'Sara Mensah', stage: 'New', priority: 'med', next: 'First call due in 20 min', value: 1100 },
+    { name: 'Tom Reilly', stage: 'Quoted', priority: 'low', next: 'Follow up tomorrow', value: 890 },
+  ],
+  myInstructions: [
+    { name: 'Grace Adeyemi', type: 'Sale & Purchase', units: 2, fee: 1840, at: '2 days ago' },
+    { name: 'Daniel Park', type: 'Purchase', units: 1, fee: 1180, at: '4 days ago' },
+    { name: 'Aisha Khan', type: 'Remortgage', units: 1, fee: 720, at: '6 days ago' },
+  ],
+};
+
+// Conversations — the ManyChat-style unified inbox: WhatsApp/SMS/email/web chat history
+// per lead + how inquiries enter (channel mix). DEMO ONLY.
+const CONVERSATIONS = {
+  channelMix: [
+    { label: 'Web form', count: 142 }, { label: 'Comparison site', count: 118 }, { label: 'Phone', count: 96 }, { label: 'WhatsApp', count: 84 }, { label: 'Email', count: 61 },
+  ],
+  threads: [
+    { id: 't1', name: 'Karen Howe', channel: 'whatsapp', intent: 'Purchase quote', last: 'Yes that works, what next?', at: '4m', unread: 2, status: 'open', agent: 'Louise Forshaw', responseMins: 4, converted: false },
+    { id: 't2', name: 'Folake Bello', channel: 'whatsapp', intent: 'Quote accepted', last: 'I will sign tonight', at: '1h', unread: 0, status: 'open', agent: 'Louise Forshaw', responseMins: 6, converted: true },
+    { id: 't3', name: 'Tom Reilly', channel: 'sms', intent: 'Remortgage', last: 'Can you call me?', at: '3h', unread: 1, status: 'open', agent: 'Priya Shah', responseMins: 12, converted: false },
+    { id: 't4', name: 'Sara Mensah', channel: 'email', intent: 'Sale quote', last: 'Thanks for the quote', at: '5h', unread: 0, status: 'open', agent: 'Sarah Okafor', responseMins: 22, converted: false },
+    { id: 't5', name: 'Daniel Park', channel: 'web', intent: 'Purchase enquiry', last: 'Submitted via comparison site', at: '1d', unread: 0, status: 'closed', agent: 'James Okoro', responseMins: 35, converted: true },
+  ],
+  assignableAgents: ['Louise Forshaw', 'Priya Shah', 'Sarah Okafor', 'James Okoro'],
+  stats: {
+    kpis: [
+      { label: 'Open conversations', value: '23', sub: '5 unassigned', tone: 'info', deltaPct: 8, good: true },
+      { label: 'Avg first response', value: '6m', sub: 'vs 11m last wk', tone: 'good', deltaPct: -45, good: true },
+      { label: 'Within 10-min SLA', value: '78%', sub: 'of conversations', tone: 'good', deltaPct: 12, good: true },
+      { label: 'Chat → instruction', value: '16%', sub: 'conversion', tone: 'good', deltaPct: 9, good: true },
+    ],
+    byAgent: [
+      { agent: 'Louise Forshaw', handled: 38, avgResponseMins: 5, conversion: 18 },
+      { agent: 'Priya Shah', handled: 31, avgResponseMins: 7, conversion: 15 },
+      { agent: 'Sarah Okafor', handled: 27, avgResponseMins: 9, conversion: 12 },
+      { agent: 'James Okoro', handled: 22, avgResponseMins: 14, conversion: 8 },
+    ],
+  },
+  messages: {
+    t1: [
+      { from: 'lead', text: 'Hi, I got a quote on The Move Exchange for my purchase', at: '10:02' },
+      { from: 'agent', text: 'Hi Karen! Yes I can see it — £1,180 all in for a £320k purchase. Happy to talk it through.', at: '10:05' },
+      { from: 'lead', text: 'Great. Does that include searches?', at: '10:09' },
+      { from: 'agent', text: 'It does — searches, SDLT handling and Land Registry are all included. No hidden extras.', at: '10:11' },
+      { from: 'lead', text: 'Yes that works, what next?', at: '10:14' },
+    ],
+    t2: [
+      { from: 'agent', text: 'Hi Folake, your quote is accepted — I will send the instruction pack now.', at: '09:20' },
+      { from: 'lead', text: 'Perfect, thank you', at: '09:34' },
+      { from: 'lead', text: 'I will sign tonight', at: '09:35' },
+    ],
+    t3: [
+      { from: 'lead', text: 'Looking to remortgage, can you help?', at: '08:50' },
+      { from: 'agent', text: 'Of course — what is the property value and current lender?', at: '08:58' },
+      { from: 'lead', text: 'Can you call me?', at: '09:12' },
+    ],
+    t4: [
+      { from: 'agent', text: 'Hi Sara, here is your sale quote — £980 all in.', at: 'Yesterday' },
+      { from: 'lead', text: 'Thanks for the quote', at: 'Yesterday' },
+    ],
+    t5: [
+      { from: 'lead', text: 'Submitted via comparison site', at: '2 days ago' },
+      { from: 'agent', text: 'Thanks for your enquiry — I will be in touch shortly.', at: '2 days ago' },
+    ],
+  },
+};
+
+// Revenue boost — money on the table: recovery opportunities, revenue at risk, upsell,
+// and WIP/lockup aging. The "what would boost financial stuffs" layer. DEMO ONLY.
+const REVENUE_OPPORTUNITIES = {
+  summary: { recoverable: 54400, atRisk: 14160, lockupDays: 58, lockupTarget: 45 },
+  recovery: [
+    { label: 'Accepted, not instructed', count: 5, value: 8600, action: 'Send the instruction packs today', tone: 'good' },
+    { label: 'Quotes accepted >7 days ago', count: 3, value: 4200, action: 'Chase the signatures', tone: 'warn' },
+    { label: 'Abandoned quotes (saw price, left)', count: 100, value: 14000, action: 'Email a "save my quote" follow-up', tone: 'warn' },
+    { label: 'Aged unpaid invoices (30d+)', count: 3, value: 18400, action: 'Send payment reminders', tone: 'bad' },
+    { label: 'Expired quotes to re-issue', count: 8, value: 9200, action: 'Re-quote with updated pricing', tone: 'warn' },
+  ],
+  atRisk: [
+    { label: 'Fall-through risk (stalled 14d+)', count: 6, value: 7080, note: 'Past stage benchmark' },
+    { label: 'Overdue completions', count: 2, value: 2360, note: 'Past committed date' },
+    { label: 'Enquiries unanswered 5d+', count: 4, value: 4720, note: 'Other side waiting' },
+  ],
+  upsell: [
+    { label: 'Remortgage clients due to switch', count: 7, value: 5040, note: 'Fixed rate ending within 90 days' },
+    { label: 'Past sale clients likely to buy', count: 11, value: 12980, note: 'Sold 6–12mo ago, no purchase yet' },
+    { label: 'Repeat / referral candidates', count: 18, value: 0, note: 'NPS 9–10 — ask for a referral' },
+  ],
+  wip: [
+    { label: '0–30 days', value: 40120 },
+    { label: '30–60 days', value: 25960 },
+    { label: '60–90 days', value: 16520 },
+    { label: '90+ days', value: 10620 },
+  ],
+};
+
+// Compliance & onboarding — ID/AML/SoF gates, KYC completeness, risk flags, file-review
+// pass rate. The SOW Phase-3 + ideation onboarding-risk gap. DEMO ONLY.
+const COMPLIANCE = {
+  kpis: [
+    { label: 'ID verified', value: '80%', sub: '71 of 89 matters', tone: 'good', deltaPct: 4, good: true },
+    { label: 'AML / SoF clear', value: '71%', sub: '63 of 89', tone: 'warn', deltaPct: 6, good: true },
+    { label: 'File-review pass', value: '94%', sub: 'vs 90% last qtr', tone: 'good', deltaPct: 4, good: true },
+    { label: 'Open risk flags', value: '5', sub: '2 high severity', tone: 'bad', deltaPct: -1, good: true },
+  ],
+  onboardingFunnel: [
+    { label: 'Instructed', count: 89 },
+    { label: 'ID requested', count: 84 },
+    { label: 'ID verified (Yoti)', count: 71 },
+    { label: 'Source of funds', count: 63 },
+    { label: 'KYC complete', count: 58 },
+    { label: 'Cleared to proceed', count: 54 },
+  ],
+  stuck: [
+    { label: 'Awaiting ID upload', count: 13 },
+    { label: 'Source-of-funds docs outstanding', count: 8 },
+    { label: 'KYC review pending', count: 5 },
+  ],
+  riskFlags: [
+    { matter: 'Volkov purchase — 3 Cedar Ct', flag: 'High-risk jurisdiction (source of funds)', severity: 'high', owner: 'James' },
+    { matter: 'Adelaja sale — 18 Pine Rd', flag: 'PEP match — enhanced due diligence', severity: 'high', owner: 'Louise' },
+    { matter: 'Webb remortgage — 5 Ash Ln', flag: 'ID document expired', severity: 'med', owner: 'Sarah' },
+    { matter: 'Nkemelu purchase — 41 Fir Ave', flag: 'Source of funds unclear', severity: 'med', owner: 'James' },
+    { matter: 'Cole sale — 12 Birch Way', flag: 'Address mismatch on ID', severity: 'low', owner: 'Tom' },
+  ],
+  passRateTrend: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], values: [88, 90, 89, 91, 92, 94] },
+};
+
+// Lead resale — selling surplus / out-of-area / unconverted / declined leads to partner
+// firms as a new revenue line. Admin pipeline, buyers, inventory, profit. DEMO ONLY.
+// NOTE: only consented "happy to be contacted by partners" leads are sellable (GDPR).
+const LEAD_RESALE = {
+  kpis: [
+    { label: 'Leads sold (30d)', value: '142', sub: 'vs 118 prior', tone: 'good', deltaPct: 20, good: true },
+    { label: 'Resale revenue', value: '£4.3k', sub: 'this month', tone: 'good', deltaPct: 18, good: true },
+    { label: 'Avg price / lead', value: '£30', sub: 'vs £26 prior', tone: 'good', deltaPct: 15, good: true },
+    { label: 'Gross margin', value: '82%', sub: 'on otherwise-wasted leads', tone: 'good', deltaPct: 3, good: true },
+  ],
+  pipeline: [
+    { label: 'Available to sell', count: 210 },
+    { label: 'Offered to buyers', count: 168 },
+    { label: 'Agreed / sold', count: 142 },
+    { label: 'Delivered', count: 138 },
+    { label: 'Paid', count: 121 },
+  ],
+  inventory: [
+    { label: 'Out-of-area (cannot service)', count: 64 },
+    { label: 'Unconverted after 30 days', count: 71 },
+    { label: 'Wrong matter type', count: 38 },
+    { label: 'Declined our quote', count: 37 },
+  ],
+  buyers: [
+    { name: 'Conveyancing Direct Ltd', leadsBought: 58, spend: 1740, avgPrice: 30, rating: 'A', status: 'active' },
+    { name: 'MoveFast Solicitors', leadsBought: 41, spend: 1435, avgPrice: 35, rating: 'A', status: 'active' },
+    { name: 'PropertyLeads CRM', leadsBought: 28, spend: 700, avgPrice: 25, rating: 'B', status: 'active' },
+    { name: 'Regional Law Group', leadsBought: 15, spend: 525, avgPrice: 35, rating: 'B', status: 'paused' },
+  ],
+  byType: [
+    { label: 'Purchase', count: 58 }, { label: 'Sale', count: 44 }, { label: 'Remortgage', count: 24 }, { label: 'Sale & Purchase', count: 16 },
+  ],
+  revenueTrend: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], values: [2100, 2600, 2900, 3400, 3650, 4300] },
+  note: 'Only leads consented at capture to "be contacted by partner firms" are sellable (GDPR explicit consent). These are out-of-area, wrong-type, unconverted and declined-quote leads that would otherwise be wasted — ~82% margin. Keep delivery exclusive (one buyer per lead) to protect price and reputation.',
+};
+
+// Lead-resale ELIGIBILITY QUEUE — the admin operational page: sellable leads with reason
+// bucket, region, freshness, quality, consent gate, computed price + matched buyers. DEMO.
+const RESALE_QUEUE = {
+  buckets: [
+    { key: 'all', label: 'All sellable', count: 210 },
+    { key: 'out_of_area', label: 'Out of area', count: 64 },
+    { key: 'unconverted', label: 'Unconverted', count: 71 },
+    { key: 'wrong_type', label: 'Wrong type', count: 38 },
+    { key: 'declined', label: 'Declined quote', count: 37 },
+  ],
+  leads: [
+    { id: 'q1', ref: 'CL-2041', initials: 'K.H.', reason: 'out_of_area', region: 'Manchester M20', matter: 'Purchase', value: 320000, freshnessHrs: 6, quality: 88, consent: true, price: 38, exclusivity: 'unsold', matchedBuyers: ['Conveyancing Direct Ltd', 'MoveFast Solicitors'] },
+    { id: 'q2', ref: 'CL-2038', initials: 'T.R.', reason: 'wrong_type', region: 'Leeds LS1', matter: 'Commercial', value: 0, freshnessHrs: 20, quality: 72, consent: true, price: 22, exclusivity: 'unsold', matchedBuyers: ['Regional Law Group'] },
+    { id: 'q3', ref: 'CL-2035', initials: 'S.M.', reason: 'unconverted', region: 'Bristol BS8', matter: 'Sale', value: 285000, freshnessHrs: 72, quality: 64, consent: true, price: 18, exclusivity: 'unsold', matchedBuyers: ['PropertyLeads CRM', 'MoveFast Solicitors'] },
+    { id: 'q4', ref: 'CL-2031', initials: 'D.P.', reason: 'declined', region: 'Birmingham B15', matter: 'Remortgage', value: 210000, freshnessHrs: 96, quality: 51, consent: false, price: 0, exclusivity: 'blocked', matchedBuyers: [] },
+    { id: 'q5', ref: 'CL-2029', initials: 'A.K.', reason: 'out_of_area', region: 'Glasgow G12', matter: 'Purchase', value: 240000, freshnessHrs: 10, quality: 81, consent: true, price: 35, exclusivity: 'unsold', matchedBuyers: ['Conveyancing Direct Ltd'] },
+    { id: 'q6', ref: 'CL-2024', initials: 'F.B.', reason: 'unconverted', region: 'Sheffield S10', matter: 'Sale', value: 175000, freshnessHrs: 120, quality: 58, consent: true, price: 12, exclusivity: 'unsold', matchedBuyers: ['PropertyLeads CRM'] },
+    { id: 'q7', ref: 'CL-2019', initials: 'J.O.', reason: 'wrong_type', region: 'Cardiff CF10', matter: 'Probate', value: 0, freshnessHrs: 48, quality: 69, consent: true, price: 20, exclusivity: 'listed', matchedBuyers: ['Regional Law Group'] },
+    { id: 'q8', ref: 'CL-2014', initials: 'M.E.', reason: 'out_of_area', region: 'Liverpool L1', matter: 'Sale & Purchase', value: 410000, freshnessHrs: 4, quality: 91, consent: true, price: 46, exclusivity: 'unsold', matchedBuyers: ['Conveyancing Direct Ltd', 'MoveFast Solicitors', 'PropertyLeads CRM'] },
+    { id: 'q9', ref: 'CL-2008', initials: 'C.O.', reason: 'declined', region: 'Nottingham NG1', matter: 'Purchase', value: 198000, freshnessHrs: 144, quality: 44, consent: true, price: 8, exclusivity: 'unsold', matchedBuyers: ['PropertyLeads CRM'] },
+    { id: 'q10', ref: 'CL-2003', initials: 'W.C.', reason: 'unconverted', region: 'Newcastle NE1', matter: 'Remortgage', value: 160000, freshnessHrs: 96, quality: 55, consent: true, price: 14, exclusivity: 'sold', matchedBuyers: ['MoveFast Solicitors'] },
+  ],
+};
+
+// Integrations & ops health — feed freshness, sync health, CRM-vs-3CX reconciliation,
+// automation success, data completeness/duplicates. Catches silent failures. DEMO ONLY.
+const OPS_HEALTH = {
+  kpis: [
+    { label: 'Integrations healthy', value: '7/8', sub: '1 degraded', tone: 'warn', deltaPct: 0, good: true },
+    { label: 'Data completeness', value: '92%', sub: 'vs 88% last mo', tone: 'good', deltaPct: 5, good: true },
+    { label: 'Automations (24h)', value: '98.2%', sub: 'success rate', tone: 'good', deltaPct: 1, good: true },
+    { label: '3CX feed', value: 'Fresh', sub: 'synced 4m ago', tone: 'good', deltaPct: 0, good: true },
+  ],
+  integrations: [
+    { name: '3CX (calls)', status: 'healthy', lastSync: '4m ago', note: 'Real-time webhook' },
+    { name: 'HMLR / Land Registry', status: 'healthy', lastSync: '1h ago', note: 'Searches OK' },
+    { name: 'Search provider', status: 'healthy', lastSync: '20m ago', note: '' },
+    { name: 'Lender panel', status: 'healthy', lastSync: '2h ago', note: '' },
+    { name: 'Yoti (ID / AML)', status: 'healthy', lastSync: '12m ago', note: '' },
+    { name: 'Email deliverability', status: 'degraded', lastSync: '8m ago', note: 'Spam rate elevated' },
+    { name: 'Comparison-sites feed', status: 'healthy', lastSync: '6m ago', note: '' },
+    { name: 'Accounting (Xero)', status: 'healthy', lastSync: '1d ago', note: 'Nightly sync' },
+  ],
+  dataGaps: [
+    { label: 'Leads missing source / UTM', count: 14 },
+    { label: 'Matters missing key dates', count: 9 },
+    { label: 'Contacts missing phone', count: 6 },
+    { label: 'Duplicate leads to merge', count: 4 },
+  ],
+  reconTrend: { labels: Array.from({ length: 14 }, (_, i) => { const d = new Date(D.getTime() - (13 - i) * 86400000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }), values: [94, 95, 93, 96, 95, 97, 96, 95, 97, 98, 96, 97, 98, 97] },
+  errorTrend: { labels: Array.from({ length: 14 }, (_, i) => { const d = new Date(D.getTime() - (13 - i) * 86400000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }), values: [6, 4, 5, 3, 4, 2, 3, 5, 2, 1, 3, 2, 4, 2] },
+};
+
+// Client experience — NPS/CSAT, update cadence vs promise, review funnel, complaints,
+// referrals & repeat. DEMO ONLY (all reused chart components).
+const CLIENT_EXPERIENCE = {
+  kpis: [
+    { label: 'NPS', value: '+62', sub: 'vs +54 last qtr', tone: 'good', deltaPct: 15, good: true },
+    { label: 'CSAT', value: '4.6/5', sub: '218 responses', tone: 'good', deltaPct: 4, good: true },
+    { label: 'Avg update gap', value: '3.1d', sub: 'promised every 5d', tone: 'good', deltaPct: -12, good: true },
+    { label: 'Open complaints', value: '2', sub: '1 overdue', tone: 'warn', deltaPct: -1, good: true },
+  ],
+  npsTrend: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], values: [48, 52, 54, 57, 59, 62] },
+  reviewFunnel: [
+    { label: 'Asked for a review', count: 142 },
+    { label: 'Opened the request', count: 98 },
+    { label: 'Left a review', count: 61 },
+    { label: '5-star reviews', count: 48 },
+  ],
+  cadence: [
+    { label: 'On promised cadence', count: 71 },
+    { label: 'Slightly behind', count: 14 },
+    { label: 'Overdue an update', count: 6 },
+  ],
+  referrals: [
+    { label: 'Referrals received', count: 23 },
+    { label: 'Repeat clients', count: 11 },
+    { label: 'Review → new enquiry', count: 9 },
+  ],
+  complaints: [
+    { client: 'Mr & Mrs Dunne — 8 Rowan Cl', issue: 'Slow response on enquiries', age: '5 days', severity: 'high' },
+    { client: 'Ms Adebayo — 14 Larch Rd', issue: 'Unclear on completion date', age: '2 days', severity: 'med' },
+  ],
+};
+
+// Sales velocity — how fast deals move and why they win/lose: stage durations, win/loss
+// reasons, conversion-by-lead-age, and the lead→instruction time trend. DEMO ONLY (reuse).
+const SALES_VELOCITY = {
+  kpis: [
+    { label: 'Lead → instruction', value: '11.2d', sub: 'vs 13.8d last qtr', tone: 'good', deltaPct: -19, good: true },
+    { label: 'Quote → accept', value: '3.4d', sub: 'vs 4.1d', tone: 'good', deltaPct: -17, good: true },
+    { label: 'Win rate', value: '34%', sub: 'of quotes sent', tone: 'good', deltaPct: 8, good: true },
+    { label: 'Pipeline velocity', value: '£62k/wk', sub: 'weighted', tone: 'good', deltaPct: 12, good: true },
+  ],
+  stageDays: [
+    { label: 'New → contacted', count: 1 },
+    { label: 'Contacted → quoted', count: 3 },
+    { label: 'Quoted → accepted', count: 3 },
+    { label: 'Accepted → instructed', count: 4 },
+  ],
+  winReasons: [
+    { label: 'Price competitive', count: 38 },
+    { label: 'Fast response', count: 29 },
+    { label: 'Recommended / reviews', count: 18 },
+    { label: 'No estate-agent tie-in', count: 14 },
+  ],
+  lossReasons: [
+    { label: 'Price too high', count: 31 },
+    { label: 'Went with a comparison rival', count: 22 },
+    { label: 'Too slow to respond', count: 13 },
+    { label: 'Chose own solicitor', count: 11 },
+  ],
+  conversionByAge: [
+    { label: '0–1 day', count: 24 },
+    { label: '2–3 days', count: 16 },
+    { label: '4–7 days', count: 9 },
+    { label: '8+ days', count: 4 },
+  ],
+  velocityTrend: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], values: [14.1, 13.8, 13.2, 12.5, 11.9, 11.2] },
+};
+
+// Capacity & workload — demand vs capacity, caseload balance per fee-earner, and where
+// matters pile up (bottleneck stage). DEMO ONLY (reuse).
+const CAPACITY = {
+  kpis: [
+    { label: 'Capacity used', value: '86%', sub: 'firm-wide', tone: 'warn', deltaPct: 4, good: false },
+    { label: 'Open vs capacity', value: '89 / 105', sub: 'matters', tone: 'good', deltaPct: 6, good: true },
+    { label: 'Avg caseload', value: '18', sub: 'per fee-earner', tone: 'info', deltaPct: 3, good: true },
+    { label: 'Bottleneck stage', value: 'Enquiries', sub: '22 matters stuck', tone: 'bad', deltaPct: 0, good: true },
+  ],
+  byFeeEarner: [
+    { label: 'Louise Forshaw (cap 22)', count: 23 },
+    { label: 'Sarah Okafor (cap 22)', count: 21 },
+    { label: 'James Okoro (cap 20)', count: 19 },
+    { label: 'Priya Shah (cap 20)', count: 16 },
+    { label: 'Tom Bennett (cap 18)', count: 10 },
+  ],
+  demandVsCapacity: {
+    labels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'],
+    demand: [16, 18, 17, 21, 19, 22, 20, 24],
+    capacity: [20, 20, 20, 20, 21, 21, 21, 21],
+  },
+  bottlenecks: [
+    { label: 'Enquiries', count: 22 },
+    { label: 'Searches', count: 14 },
+    { label: 'Mortgage offer', count: 11 },
+    { label: 'Report & sign', count: 8 },
+  ],
+  note: 'Demand has topped capacity for 3 of the last 4 weeks — backlog is building at the Enquiries stage. Louise and Sarah are over their caseload cap; Tom has room. Rebalance or add cover.',
+};
+
+// Forecast — lead-volume, instruction and revenue projections with confidence bands
+// (trailing run-rate + seasonal index). DEMO ONLY.
+const FORECAST = {
+  kpis: [
+    { label: 'Instructions (Jul)', value: '58', sub: '±6 · 52 actual Jun', tone: 'good', deltaPct: 12, good: true },
+    { label: 'Revenue (Jul)', value: '£74k', sub: '±£8k forecast', tone: 'good', deltaPct: 9, good: true },
+    { label: 'Completions (Jul)', value: '16', sub: 'from pipeline', tone: 'good', deltaPct: 14, good: true },
+    { label: 'Lead volume (Jul)', value: '240', sub: '+8% seasonal', tone: 'good', deltaPct: 8, good: true },
+  ],
+  instructions: {
+    labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+    actual: [44, 47, 49, 51, 52, null, null, null],
+    forecast: [null, null, null, null, 52, 58, 61, 57],
+    lower: [null, null, null, null, 52, 52, 53, 49],
+    upper: [null, null, null, null, 52, 64, 69, 65],
+  },
+  revenue: {
+    labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+    actual: [58, 63, 60, 71, 68, null, null, null],
+    forecast: [null, null, null, null, 68, 74, 78, 73],
+    lower: [null, null, null, null, 68, 66, 68, 63],
+    upper: [null, null, null, null, 68, 82, 88, 83],
+  },
+  leadVolume: {
+    labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
+    actual: [198, 212, 221, 218, 222, null, null, null],
+    forecast: [null, null, null, null, 222, 240, 252, 234],
+    lower: [null, null, null, null, 222, 224, 232, 214],
+    upper: [null, null, null, null, 222, 256, 272, 254],
+  },
+  note: 'Seasonal uplift expected into July–August (the spring/summer moving peak). Pre-book fee-earner capacity now — current demand already tops capacity.',
+};
+
+// Best time to call — day×hour timing intelligence keyed on PICKUP RATE (not just volume),
+// filterable by window (7d / 30d / 3 months), with the call-vs-pickup mismatch. DEMO ONLY.
+const TIMING = (() => {
+  const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const hourPickup: Record<number, number> = { 8: 42, 9: 64, 10: 84, 11: 78, 12: 55, 13: 48, 14: 70, 15: 75, 16: 71, 17: 58, 18: 44 };
+  const hourVol: Record<number, number> = { 8: 0.5, 9: 0.9, 10: 1.0, 11: 0.85, 12: 0.5, 13: 0.6, 14: 1.05, 15: 1.0, 16: 0.9, 17: 0.7, 18: 0.45 };
+  const dayMult: Record<string, number> = { Mon: 1.0, Tue: 1.05, Wed: 0.97, Thu: 1.0, Fri: 0.9, Sat: 0.45, Sun: 0.4 };
+  const dayVol: Record<string, number> = { Mon: 1.0, Tue: 1.1, Wed: 0.85, Thu: 0.82, Fri: 0.8, Sat: 0.06, Sun: 0.05 };
+  const hourLabel = (h: number) => (h === 12 ? '12p' : h > 12 ? `${h - 12}p` : `${h}a`);
+  const build = (callBase: number) => {
+    const grid = DAYS.map((day) => ({
+      day,
+      cells: HOURS.map((h) => {
+        const calls = Math.max(0, Math.round(callBase * dayVol[day] * hourVol[h]));
+        const pickup = Math.min(98, Math.round(hourPickup[h] * dayMult[day]));
+        const connected = Math.round((calls * pickup) / 100);
+        return { calls, connected, pickup };
+      }),
+    }));
+    const pickupByHour = HOURS.map((h, hi) => {
+      let c = 0, k = 0;
+      grid.forEach((g) => { c += g.cells[hi].calls; k += g.cells[hi].connected; });
+      return { hour: hourLabel(h), pickup: c ? Math.round((k / c) * 100) : 0, calls: c };
+    });
+    const pickupByDay = grid.map((g) => {
+      const c = g.cells.reduce((s, x) => s + x.calls, 0);
+      const k = g.cells.reduce((s, x) => s + x.connected, 0);
+      return { day: g.day, pickup: c ? Math.round((k / c) * 100) : 0, calls: c };
+    });
+    const bestHour = [...pickupByHour].filter((p) => p.calls >= 5).sort((a, b) => b.pickup - a.pickup)[0] || pickupByHour[0];
+    const busiestHour = [...pickupByHour].sort((a, b) => b.calls - a.calls)[0];
+    return { hours: HOURS.map(hourLabel), grid, pickupByHour, pickupByDay, bestHour, busiestHour };
+  };
+  return {
+    days: DAYS,
+    bestWindow: 'Tue–Thu 10–11am',
+    note: 'Leads pick up most 10–11am and 2–4pm, Tue–Thu. You dial most at 2pm but the 10am window connects ~14pp better — shift early-day calls earlier to lift connect rate.',
+    byRange: { '7d': build(16), '30d': build(60), '3mo': build(180) },
+  };
+})();
+
+// Call insights — AI conversation analytics: every analysed call grouped into clickable
+// signals (topic / impact / objection / blocker / guidance); each opens the calls behind
+// it (which agent, which lead, the exact words, an AI note, a trend). DEMO ONLY.
+const CALL_INSIGHTS = {
+  kpis: [
+    { label: 'Calls to hand', value: '1,000', sub: '554 analysed', tone: 'info', deltaPct: 0, good: true },
+    { label: 'Analysed', value: '55%', sub: '554 transcripts', tone: 'good', deltaPct: 6, good: true },
+    { label: 'Sales calls', value: '514', sub: 'pre-deposit + enquiries', tone: 'info', deltaPct: 4, good: true },
+    { label: 'Substantive', value: '284', sub: 'real conversations', tone: 'good', deltaPct: 8, good: true },
+  ],
+  withWho: [{ label: 'Sales', count: 93 }, { label: 'Live file', count: 7 }],
+  howLanded: [{ label: 'Substantive', count: 51 }, { label: 'Brief check-in', count: 17 }, { label: 'Voicemail', count: 26 }, { label: 'No answer', count: 6 }],
+  groups: [
+    {
+      key: 'topics', title: 'Primary topic mix', caption: 'click a topic for the calls behind it', tone: 'navy',
+      items: [
+        { key: 'vm', label: 'Voicemail Left', count: 165, calls: 165, trend: [22, 26, 24, 28, 30, 35], sample: [
+          { agent: 'Dej A', lead: 'Annie Gerald-Webb', date: '18 Jun', quote: 'Hi, this is Dej from APCM — give me a call back when you can.', note: 'Auto-logged voicemail. Trigger the day-2 follow-up SMS.' },
+          { agent: 'Jonny Green', lead: 'Philip Blundred', date: '16 Jun', quote: 'Tried you a couple of times — happy to talk the quote through.', note: 'Third VM on this lead; switch channel to email + WhatsApp.' },
+        ] },
+        { key: 'na', label: 'No Answer', count: 157, calls: 157, trend: [20, 24, 26, 23, 28, 30], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '15 Jun', quote: 'No answer — line rang out.', note: 'Best-time-to-call: this lead picks up ~10am, dialled at 4pm.' },
+        ] },
+        { key: 'fpu', label: 'File Progress Update', count: 112, calls: 112, trend: [14, 16, 18, 17, 20, 22], sample: [
+          { agent: 'Dej A', lead: 'Nicola Caddick', date: '15 Jun', quote: 'Searches are back, we are waiting on the lender now.', note: 'Live-file call; blocker = Waiting On Lender. Surface on the matter.' },
+        ] },
+        { key: 'dc', label: 'Document Chase', count: 88, calls: 88, trend: [10, 12, 11, 14, 15, 16], sample: [
+          { agent: 'Jonny Green', lead: 'Diane Thomas', date: '15 Jun', quote: 'We still need your ID and proof of funds to proceed.', note: 'Outstanding KYC docs — link to the compliance onboarding queue.' },
+        ] },
+        { key: 'ic', label: 'Internal Coordination', count: 85, calls: 85, trend: [12, 13, 12, 14, 15, 15], sample: [
+          { agent: 'Dej A', lead: '—', date: '12 Jun', quote: 'Can you check with the head of sales and I will find out for you.', note: 'Internal call — excluded from outbound sales metrics.' },
+        ] },
+        { key: 'qd', label: 'Quote Discussion', count: 64, calls: 64, trend: [9, 10, 11, 10, 12, 13], sample: [
+          { agent: 'Dej A', lead: 'Barry Pudney', date: '10 Jun', quote: 'It is £1,180 all in for the purchase — searches and SDLT handling included.', note: 'Price-sensitive; lead with value before number.' },
+        ] },
+        { key: 'qual', label: 'Qualification', count: 57, calls: 57, trend: [8, 9, 9, 10, 11, 11], sample: [
+          { agent: 'Jonny Green', lead: 'Katherine Smith', date: '10 Jun', quote: 'And is this a freehold or leasehold sale?', note: 'Good qualification — property type captured.' },
+        ] },
+        { key: 'fuci', label: 'Follow Up Check In', count: 50, calls: 50, trend: [6, 7, 8, 8, 9, 10], sample: [
+          { agent: 'Helen Sadler', lead: 'Elizabeth Pearce', date: '11 Jun', quote: 'Just checking in before you go on holiday — where are we up to?', note: 'Timing-sensitive; client travelling. Set a hard callback.' },
+        ] },
+      ],
+    },
+    {
+      key: 'impact', title: 'Call impact', caption: 'positive or negative — click to read why', tone: 'good',
+      items: [
+        { key: 'neu', label: 'Neutral', count: 389, calls: 389, trend: [60, 62, 61, 64, 63, 65], sample: [
+          { agent: 'Jonny Green', lead: 'Anne', date: '8 Jun', quote: 'I am not quite ready yet.', note: 'Neutral close; no commitment but no objection. Nurture.' },
+        ] },
+        { key: 'pos', label: 'Positive', count: 128, sentiment: 0.51, calls: 128, trend: [18, 20, 22, 21, 24, 26], sample: [
+          { agent: 'Dej A', lead: 'Rebecca Wasey', date: '9 Jun', quote: 'That works for me, what do we do next?', note: 'Buying signal — send the instruction pack immediately.' },
+        ] },
+        { key: 'neg', label: 'Negative', count: 32, sentiment: -0.41, calls: 32, trend: [7, 6, 6, 5, 5, 4], sample: [
+          { agent: 'Jonny Green', lead: 'Martin Sach', date: '4 Jun', quote: 'Not right now. No.', note: 'Hard no; mark disposition + suppress for 30 days.' },
+        ] },
+        { key: 'vpos', label: 'Very Positive', count: 19, sentiment: 0.74, calls: 19, trend: [2, 3, 3, 4, 3, 4], sample: [
+          { agent: 'Dej A', lead: 'Francine Lewis', date: '3 Jun', quote: 'Brilliant, you have been really helpful — let us get going.', note: 'Champion client; ask for a review after completion.' },
+        ] },
+        { key: 'vneg', label: 'Very Negative', count: 2, sentiment: -0.88, calls: 2, trend: [1, 0, 1, 0, 0, 1], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '2 Jun', quote: 'I have asked you not to call me again.', note: 'Complaint risk + do-not-call. Flag to manager.' },
+        ] },
+      ],
+    },
+    {
+      key: 'objections', title: 'Sales objections', caption: 'tier-0 friction — click for the exact words', tone: 'warn',
+      items: [
+        { key: 'timing', label: 'Timing Not Ready', count: 30, sentiment: 0.24, conversion: { withPct: 16, otherPct: 60 }, calls: 30, trend: [6, 9, 12, 16, 20, 24], sample: [
+          { agent: 'Dej A', lead: 'Annie Gerald-Webb', date: '18 Jun', quote: "I've got a million and one things to do. I don't have time to give you feedback.", note: 'Not a price objection — set a low-friction callback, do not pitch.' },
+          { agent: 'Jonny Green', lead: 'Jane A Pittam', date: '15 Jun', quote: "Not at the moment. It couldn't be busy at the moment.", note: 'Park + nurture; re-touch in 7 days.' },
+        ] },
+        { key: 'comparing', label: 'Comparing Quotes', count: 26, sentiment: -0.08, conversion: { withPct: 22, otherPct: 58 }, calls: 26, trend: [4, 6, 8, 7, 9, 10], sample: [
+          { agent: 'Dej A', lead: 'Ryan Darlaston', date: '20 May', quote: "I'm getting a range of quotes.", note: 'Differentiate on service + speed; reiterate no hidden extras.' },
+        ] },
+        { key: 'process', label: 'Process Uncertainty', count: 19, sentiment: 0.05, conversion: { withPct: 31, otherPct: 57 }, calls: 19, trend: [3, 4, 5, 4, 6, 6], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '11 Jun', quote: "I had to Google what they even meant. I was like, I don't know what that is.", note: 'Educate in plain English; send the step-by-step explainer.' },
+        ] },
+        { key: 'localfirm', label: 'Local Firm Preference', count: 16, sentiment: -0.12, conversion: { withPct: 19, otherPct: 59 }, calls: 16, trend: [2, 3, 4, 3, 5, 5], sample: [
+          { agent: 'Dej A', lead: '—', date: '10 Jun', quote: "It's my friend who used the mini-store local. So there are two things.", note: 'Counter local-preference with reviews + nationwide track record.' },
+        ] },
+        { key: 'price', label: 'Price Too High', count: 12, sentiment: -0.33, conversion: { withPct: 14, otherPct: 61 }, calls: 12, trend: [2, 2, 3, 2, 3, 3], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '9 Jun', quote: "The top end is £2,900, several that just on a thousand. And a couple that are…", note: 'Reframe on what is included vs the cheap quote; show the real all-in.' },
+        ] },
+        { key: 'speed', label: 'Speed Urgency', count: 12, sentiment: 0.18, conversion: { withPct: 44, otherPct: 56 }, calls: 12, trend: [1, 2, 3, 3, 4, 4], sample: [
+          { agent: 'Dej A', lead: '—', date: '8 Jun', quote: 'I need to. So I need to know when things are gonna be done.', note: 'High intent — fast-track; promise + keep a concrete next date.' },
+        ] },
+        { key: 'trust', label: 'Trust Verification', count: 14, sentiment: -0.05, conversion: { withPct: 27, otherPct: 58 }, calls: 14, trend: [2, 3, 3, 4, 4, 5], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '8 Jun', quote: "It's the make sure it's you, you know, that you I'm sure you are, but…", note: 'Send SRA number + verified-firm proof to build trust.' },
+        ] },
+        { key: 'cheaper', label: 'Cheaper Quote Elsewhere', count: 6, sentiment: -0.36, conversion: { withPct: 12, otherPct: 60 }, calls: 6, trend: [1, 1, 2, 1, 2, 2], sample: [
+          { agent: 'Dej A', lead: '—', date: '6 Jun', quote: 'Because your quote was 1,900 and I have seen two or three already cheaper…', note: 'Low conversion when present; qualify hard before over-investing.' },
+        ] },
+      ],
+    },
+    {
+      key: 'blockers', title: 'Live-file blockers', caption: "what's holding matters up", tone: 'bad',
+      items: [
+        { key: 'otherside', label: 'Waiting On Other Side', count: 90, calls: 90, trend: [12, 14, 16, 18, 20, 22], sample: [
+          { agent: 'Dej A', lead: '—', date: '16 Jun', quote: 'The other side of contacted me again and said no one replied to any of th…', note: 'Chase the other side’s solicitor; log on the matter timeline.' },
+        ] },
+        { key: 'clientdocs', label: 'Waiting On Client Documents', count: 49, calls: 49, trend: [8, 9, 10, 11, 12, 13], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '15 Jun', quote: 'Just waiting for missus Lloyd to provide some photographs.', note: 'Outstanding docs blocking progress; send a reminder + portal link.' },
+        ] },
+        { key: 'internalteam', label: 'Waiting On Internal Team', count: 47, calls: 47, trend: [7, 8, 9, 9, 10, 11], sample: [
+          { agent: 'Dej A', lead: '—', date: '15 Jun', quote: "If I speak to the head of sales, then I'll get a I'll find out for you.", note: 'Internal dependency; route to the right fee-earner.' },
+        ] },
+        { key: 'clientdecision', label: 'Waiting On Client Decision', count: 42, calls: 42, trend: [6, 7, 8, 8, 9, 10], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '14 Jun', quote: "I'm just wait I'm well, that's what I'm waiting on when I go up next week.", note: 'Decision pending; set a firm follow-up date.' },
+        ] },
+        { key: 'lender', label: 'Waiting On Lender', count: 35, calls: 35, trend: [5, 6, 7, 7, 8, 9], sample: [
+          { agent: 'Dej A', lead: '—', date: '13 Jun', quote: 'They did say that if the client calls, they can just send it directly to ya…', note: 'Lender holding the offer; chase + update the client proactively.' },
+        ] },
+        { key: 'contractpack', label: 'Contract Pack Pending', count: 14, calls: 14, trend: [2, 2, 3, 3, 4, 4], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '12 Jun', quote: 'It just needs to be drafted.', note: 'Contract pack not issued; assign + set an SLA.' },
+        ] },
+        { key: 'searchpack', label: 'Search Pack Pending', count: 11, calls: 11, trend: [1, 2, 2, 3, 3, 3], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '11 Jun', quote: 'He has made the payment, but we have still not received it…', note: 'Searches paid but not back; chase the provider (ops-health feed).' },
+        ] },
+      ],
+    },
+    {
+      key: 'solutions', title: 'Solutions & actions', caption: 'situation identified, solved on the call, follow-up promised', tone: 'good',
+      items: [
+        { key: 'identified', label: 'Situation Identified', count: 113, calls: 113, trend: [14, 16, 18, 19, 21, 22], sample: [
+          { agent: 'Dej A', lead: 'Nicola Caddick', date: '15 Jun', quote: 'Right, so the hold-up is the redemption figure from your lender.', note: 'Root cause named on the call — log the blocker + owner on the matter.' },
+        ] },
+        { key: 'offered', label: 'Solution Offered', count: 113, calls: 113, trend: [13, 15, 17, 18, 20, 21], sample: [
+          { agent: 'Jonny Green', lead: 'Diane Thomas', date: '15 Jun', quote: 'I can chase the lender today and call you back the moment it is in.', note: 'Concrete action committed — auto-create the task + callback.' },
+        ] },
+        { key: 'followup', label: 'Follow-up Promised', count: 113, calls: 113, trend: [12, 14, 16, 17, 19, 20], sample: [
+          { agent: 'Dej A', lead: 'Barry Pudney', date: '10 Jun', quote: 'I will speak to my colleague and come back to you before Friday.', note: 'Promise made — track it; flag if the Friday callback is missed.' },
+        ] },
+        { key: 'resolvedcall', label: 'Resolved On Call', count: 88, calls: 88, trend: [10, 11, 13, 14, 15, 16], sample: [
+          { agent: 'Jonny Green', lead: 'Katherine Smith', date: '10 Jun', quote: 'Done — I have updated the file and emailed you the confirmation now.', note: 'Closed in one touch; good first-contact resolution.' },
+        ] },
+      ],
+    },
+    {
+      key: 'guidance', title: 'Conveyancer guidance', caption: 'reusable legal advice captured from internal calls', tone: 'navy',
+      items: [
+        { key: 'do', label: 'Do', count: 60, calls: 52, trend: [8, 9, 10, 11, 12, 13], sample: [
+          { agent: 'Dej A', lead: '—', date: '16 Jun', quote: 'If she logs into the app you can get a figure over the phone.', note: 'Reusable: redemption figure obtainable in-app — saves a lender call.' },
+        ] },
+        { key: 'process', label: 'Process', count: 23, calls: 21, trend: [3, 4, 5, 4, 6, 6], sample: [
+          { agent: 'Dej A', lead: '—', date: '15 Jun', quote: 'She sends that figure, and then within a few days, the statement will come.', note: 'Process note: figure first, formal statement follows in days.' },
+        ] },
+        { key: 'ask', label: 'Ask', count: 8, calls: 7, trend: [0, 2, 4, 6, 7, 8], sample: [
+          { agent: 'Dej A', lead: '—', date: '16 Jun', quote: "If the neighbour's happy to transfer the property, she'll have to speak to them and do it that way.", note: 'Always explore a TP1 / deed of easement before the adverse-possession route.' },
+          { agent: 'Helen Sadler', lead: '—', date: '15 Jun', quote: 'Can we calculate the daily rate and then pay the redemption?', note: 'Ask if you can calculate accrual + pay redemption while awaiting the formal statement.' },
+        ] },
+        { key: 'dont', label: "Don't", count: 8, calls: 7, trend: [1, 1, 2, 2, 3, 3], sample: [
+          { agent: 'Dej A', lead: '—', date: '12 Jun', quote: "We certainly won't be dealing with the TP1 one. And if you are, then you're gonna charge an additional fee…", note: 'Do not absorb extra-title work without re-quoting the additional fee.' },
+        ] },
+      ],
+    },
+  ],
+};
+
+// Lead analytics — the "Leads" analytics view: where leads sit, how they feel, what they
+// push back on (worst-handled first, with handling quality), client questions, follow-up
+// outcomes, qualification capture, standout phrases. Clicking a signal opens the rich
+// drill-down (handling breakdown + client-said / rep-replied / client-reaction). DEMO ONLY.
+const LEAD_ANALYTICS = {
+  kpis: [
+    { label: 'Time to deposit', value: '0.1d', sub: 'created → paid', tone: 'good', deltaPct: -10, good: true },
+    { label: 'Time to connect', value: '11.0h', sub: 'lead → first connected', tone: 'warn', deltaPct: -5, good: true },
+    { label: 'Attempts', value: '1.1', sub: 'dials until pickup', tone: 'info', deltaPct: 0, good: true },
+    { label: 'Contacts to deposit', value: '1.1', sub: 'calls + emails before deposit', tone: 'info', deltaPct: 0, good: true },
+    { label: 'In range', value: '293', sub: '290 with temperature', tone: 'info', deltaPct: 6, good: true },
+  ],
+  lifecycle: [
+    { label: 'New', count: 45 }, { label: 'Contacted', count: 41 }, { label: 'Qualified', count: 26 },
+    { label: 'Deposited', count: 13 }, { label: 'Won', count: 149 }, { label: 'Lost', count: 19 },
+  ],
+  qualificationCapture: [
+    { label: 'Property Status', count: 21 }, { label: 'Offer Status', count: 19 }, { label: 'Decision Maker', count: 18 },
+    { label: 'Urgency Level', count: 18 }, { label: 'Timescale', count: 14 }, { label: 'Prior Conveyancing Experience', count: 9 },
+    { label: 'Mortgage Status', count: 8 }, { label: 'Chain Position', count: 6 },
+  ],
+  groups: [
+    {
+      key: 'objections', title: 'What leads push back on', caption: 'worst-handled first — click for the exact words', tone: 'warn',
+      items: [
+        { key: 'process', label: 'Process Uncertainty', count: 5, calls: 5, handling: { strong: 1, adequate: 0, weak: 4, missed: 0 }, handledWellPct: 20, sentiment: 0.11, conversion: { withPct: 40, otherPct: 10 }, trend: [1, 2, 3, 2, 4, 5], sample: [
+          { agent: 'Jonny Green', lead: 'Daniel Kilev', date: '8 Jun', handling: 'weak', clientSaid: 'I never sold anything. Not quite sure how things work.', repReplied: 'For us, you will have received this email where it has your quote price in it, and the button that takes you to make the deposit payment.', clientReaction: 'neutral' },
+          { agent: 'Jonny Green', lead: 'Ellie Haigh', date: '8 Jun', handling: 'weak', clientSaid: 'Where are you guys based? When you hand stuff in, you have normally got to literally go to the office.', repReplied: 'Yes, we do have a physical location, Blackburn. But everything is on the online portal.', clientReaction: 'unclear' },
+          { agent: 'Dej A', lead: 'Yvonne Akinyi Aleyakpo', date: '26 May', handling: 'strong', clientSaid: 'How would I know how to track my case?', repReplied: 'We have an online portal for your ID checks and onboarding documents, and we keep you in the loop by email throughout.', clientReaction: 'positive' },
+        ] },
+        { key: 'localfirm', label: 'Local Firm Preference', count: 5, calls: 5, handling: { strong: 0, adequate: 1, weak: 3, missed: 1 }, handledWellPct: 20, sentiment: -0.37, conversion: { withPct: 0, otherPct: 11 }, trend: [1, 2, 3, 4, 3, 5], sample: [
+          { agent: 'Dej A', lead: 'Kai Liu', date: '9 Jun', handling: 'weak', clientSaid: "I'm looking for a solicitor in Liverpool.", repReplied: "We've got clients all the way in London and up north as well — everything's done through our online portal.", clientReaction: 'pushed_back' },
+          { agent: 'Jonny Green', lead: 'Kai Liu', date: '9 Jun', handling: 'missed', clientSaid: "I tried to find the solicitors near my house. I'm in Liverpool, so it's not good.", repReplied: "No. So we're online.", clientReaction: 'pushed_back' },
+          { agent: 'Jonny Green', lead: 'Eric Bain', date: '9 Jun', handling: 'adequate', clientSaid: "I've just instructed the local firm that I've used before.", repReplied: 'No problem at all.', clientReaction: 'positive' },
+        ] },
+        { key: 'timing', label: 'Timing Not Ready', count: 6, calls: 6, handling: { strong: 1, adequate: 2, weak: 3, missed: 0 }, handledWellPct: 50, sentiment: 0.24, conversion: { withPct: 16, otherPct: 60 }, trend: [2, 3, 4, 4, 5, 6], sample: [
+          { agent: 'Dej A', lead: 'Annie Gerald-Webb', date: '18 Jun', handling: 'weak', clientSaid: "I've got a million and one things to do. I don't have time to give you feedback.", repReplied: 'No problem — when is a better time to catch you for five minutes?', clientReaction: 'neutral' },
+          { agent: 'Helen Sadler', lead: 'Elizabeth Pearce', date: '11 Jun', handling: 'adequate', clientSaid: 'We are getting married on Saturday and after that we will be unavailable.', repReplied: 'Congratulations — let me line everything up so it is ready the moment you are back.', clientReaction: 'positive' },
+        ] },
+        { key: 'comparing', label: 'Comparing Quotes', count: 6, calls: 6, handling: { strong: 2, adequate: 1, weak: 3, missed: 0 }, handledWellPct: 50, sentiment: -0.08, conversion: { withPct: 22, otherPct: 58 }, trend: [1, 2, 3, 3, 5, 6], sample: [
+          { agent: 'Dej A', lead: 'Ryan Darlaston', date: '20 May', handling: 'strong', clientSaid: "I'm getting a range of quotes.", repReplied: 'Totally fair — ours is all-in with no hidden extras, and we move fast. Happy to put it side by side.', clientReaction: 'positive' },
+        ] },
+        { key: 'price', label: 'Price Too High', count: 2, calls: 2, handling: { strong: 0, adequate: 0, weak: 2, missed: 0 }, handledWellPct: 0, sentiment: -0.33, conversion: { withPct: 14, otherPct: 61 }, trend: [1, 1, 2, 1, 2, 2], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '9 Jun', handling: 'weak', clientSaid: 'Were there some extra fees on top, like transfer fees?', repReplied: 'That is the all-in figure, there is nothing on top.', clientReaction: 'unclear' },
+        ] },
+      ],
+    },
+    {
+      key: 'sentiment', title: 'How clients feel', caption: 'click to read why', tone: 'good',
+      items: [
+        { key: 'neutral', label: 'Neutral', count: 389, calls: 389, sentiment: 0.01, trend: [60, 62, 61, 64, 63, 65], sample: [
+          { agent: 'Jonny Green', lead: 'Anne', date: '8 Jun', clientSaid: 'I am not quite ready yet.', note: 'Neutral close; nurture and re-touch.' },
+        ] },
+        { key: 'positive', label: 'Positive', count: 128, calls: 128, sentiment: 0.51, trend: [18, 20, 22, 21, 24, 26], sample: [
+          { agent: 'Dej A', lead: 'Rebecca Wasey', date: '9 Jun', clientSaid: 'That works for me, what do we do next?', note: 'Buying signal — send the instruction pack.' },
+        ] },
+        { key: 'negative', label: 'Negative', count: 32, calls: 32, sentiment: -0.43, trend: [7, 6, 6, 5, 5, 4], sample: [
+          { agent: 'Dej A', lead: 'Aida Mezit', date: '16 Jun', clientSaid: 'I have already instructed a competitor.', note: 'Client had already instructed a competitor and politely but firmly closed the door on APCM.' },
+          { agent: 'Dej A', lead: 'Barry Pudney', date: '17 Jun', clientSaid: 'I am still waiting on those documents you promised.', note: 'Polite but clearly frustrated, chasing promised documents that never arrived.' },
+        ] },
+        { key: 'verypos', label: 'Very Positive', count: 19, calls: 19, sentiment: 0.74, trend: [2, 3, 3, 4, 3, 4], sample: [
+          { agent: 'Dej A', lead: 'Francine Lewis', date: '3 Jun', clientSaid: 'You have been really helpful — let us get going.', note: 'Champion client; ask for a review after completion.' },
+        ] },
+        { key: 'veryneg', label: 'Very Negative', count: 2, calls: 2, sentiment: -0.88, trend: [1, 0, 1, 0, 0, 1], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '2 Jun', clientSaid: 'I have asked you not to call me again.', note: 'Complaint risk + do-not-call. Flag to manager.' },
+        ] },
+      ],
+    },
+    {
+      key: 'questions', title: 'Client questions', caption: 'what they ask — click for the exact wording', tone: 'navy',
+      items: [
+        { key: 'process', label: 'Process', count: 27, calls: 27, trend: [4, 5, 6, 5, 7, 8], sample: [{ agent: 'Jonny Green', lead: '—', date: '10 Jun', clientSaid: 'Just pay it over the phone, mate. Is that okay?', note: 'Explain the deposit-by-link flow in plain English.' }] },
+        { key: 'firm', label: 'Firm Details', count: 13, calls: 13, trend: [2, 3, 3, 4, 4, 5], sample: [{ agent: 'Dej A', lead: '—', date: '9 Jun', clientSaid: 'Is your phone number in there now?', note: 'Send the firm contact card + SRA number.' }] },
+        { key: 'pricing', label: 'Pricing', count: 11, calls: 11, trend: [1, 2, 2, 3, 3, 4], sample: [{ agent: 'Helen Sadler', lead: '—', date: '8 Jun', clientSaid: 'Do I have to pay stamp duty? Or is that all together?', note: 'Clarify SDLT handling vs the legal fee.' }] },
+        { key: 'timescale', label: 'Timescale', count: 9, calls: 9, trend: [1, 1, 2, 2, 3, 3], sample: [{ agent: 'Dej A', lead: '—', date: '8 Jun', clientSaid: 'Is that going to be today?', note: 'Set realistic completion expectations.' }] },
+      ],
+    },
+    {
+      key: 'followup', title: 'Follow-up outcomes', caption: 'did the call move the lead — split = left with a specific next step', tone: 'bad',
+      items: [
+        { key: 'held', label: 'Held', count: 22, calls: 22, conversion: { withPct: 38, otherPct: 7 }, trend: [3, 4, 4, 5, 5, 6], sample: [
+          { agent: 'Louise Forshaw', lead: 'Jacqui Reading', date: '18 Jun', handling: 'missed', clientSaid: '(no conversation)', repReplied: '—', clientReaction: 'no next step', note: 'Call forwarded to voicemail immediately; no conversation occurred, no message left.' },
+          { agent: 'Dej A', lead: 'Antony Sica', date: '18 Jun', handling: 'weak', clientSaid: 'I will leave it with you then anyways.', repReplied: 'Feel free to give us a call at any time.', clientReaction: 'no next step', note: 'Rep surrendered the follow-up without extracting any commitment or specific next step.' },
+        ] },
+        { key: 'progressed', label: 'Progressed', count: 15, calls: 15, conversion: { withPct: 61, otherPct: 12 }, trend: [2, 3, 3, 4, 5, 5], sample: [
+          { agent: 'Dej A', lead: 'John Smith', date: '26 May', handling: 'strong', clientSaid: 'Is it alright if I give you a call Thursday?', repReplied: 'Of course — I will hold Thursday and send a calendar note.', clientReaction: 'specific next step', note: 'Soft close with a concrete callback date.' },
+        ] },
+        { key: 'lost', label: 'Lost', count: 6, calls: 6, conversion: { withPct: 0, otherPct: 20 }, trend: [1, 1, 1, 2, 1, 1], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '12 Jun', handling: 'missed', clientSaid: 'I have already instructed another firm.', repReplied: '—', clientReaction: 'lost', note: 'Client explicitly instructed another firm based on local recommendation.' },
+        ] },
+        { key: 'stalled', label: 'Stalled', count: 1, calls: 1, conversion: { withPct: 0, otherPct: 18 }, trend: [0, 1, 0, 1, 0, 1], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '11 Jun', handling: 'missed', clientSaid: 'I am still chasing those documents.', repReplied: '—', clientReaction: 'stalled', note: 'Rep failed to answer the client follow-up call; commitment broken, no recovery attempted.' },
+        ] },
+      ],
+    },
+  ],
+  standoutPhrases: [
+    { agent: 'Dej A', lead: '—', date: '18 Jun', quote: 'We have decided to go with you.' },
+    { agent: 'Dej A', lead: '—', date: '16 Jun', quote: 'Oh, you sorted it. Okay. No problem.' },
+    { agent: 'Jonny Green', lead: '—', date: '15 Jun', quote: "When cheaper isn't always better, I genuinely mean it — I've been through things where I thought cheaper was the better option and it wasn't." },
+    { agent: 'Dej A', lead: '—', date: '14 Jun', quote: "It's Edmond calling — just a quick call regarding the quotation you're online for, for your conveyancing." },
+  ],
+};
+
+// Lead enrichment — who your leads really are: domain reverse-lookup → company + job title
+// + seniority, where they come from (UK region), email-domain mix, and decision-maker
+// signals. In ty this calls an enrichment provider (Clearbit/Apollo-style) on the lead's
+// email/domain; here, the mock. DEMO ONLY.
+const LEAD_ENRICHMENT = {
+  kpis: [
+    { label: 'Enriched', value: '78%', sub: 'leads matched to a person/company', tone: 'good', deltaPct: 8, good: true },
+    { label: 'Decision-makers', value: '34', sub: 'C-suite / founder / director', tone: 'good', deltaPct: 12, good: true },
+    { label: 'Company emails', value: '96', sub: 'vs 229 personal', tone: 'info', deltaPct: 5, good: true },
+    { label: 'Top region', value: 'London', sub: '24% of leads', tone: 'info', deltaPct: 0, good: true },
+  ],
+  byRegion: [
+    { label: 'London', count: 71 }, { label: 'South East', count: 48 }, { label: 'North West', count: 39 },
+    { label: 'Midlands', count: 33 }, { label: 'South West & Wales', count: 31 }, { label: 'Yorkshire & NE', count: 27 }, { label: 'Scotland', count: 18 },
+  ],
+  bySeniority: [
+    { label: 'C-suite / Founder', count: 34 }, { label: 'Director / Head', count: 41 }, { label: 'Manager', count: 52 },
+    { label: 'Senior individual', count: 38 }, { label: 'Other / unknown', count: 62 },
+  ],
+  byJob: [
+    { label: 'Engineering / Tech', count: 48 }, { label: 'Other', count: 83 }, { label: 'Finance / Banking', count: 31 },
+    { label: 'Sales / Marketing', count: 29 }, { label: 'Healthcare', count: 22 }, { label: 'Legal / Professional', count: 14 },
+  ],
+  bySourceDomain: [
+    { label: 'gmail.com', count: 142 }, { label: 'Company domains', count: 96 }, { label: 'outlook.com', count: 54 },
+    { label: 'icloud.com', count: 33 }, { label: 'yahoo.com', count: 21 },
+  ],
+  matchTrend: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], values: [64, 68, 71, 74, 76, 78] },
+  leads: [
+    { name: 'Grace Adeyemi', domain: 'deloitte.co.uk', company: 'Deloitte', jobTitle: 'Partner', seniority: 'C-suite / Founder', region: 'London', propertyValue: 910000, signal: 'high' },
+    { name: 'Daniel Park', domain: 'monzo.com', company: 'Monzo Bank', jobTitle: 'Head of Engineering', seniority: 'Director / Head', region: 'London', propertyValue: 620000, signal: 'high' },
+    { name: 'Karen Howe', domain: 'astrazeneca.com', company: 'AstraZeneca', jobTitle: 'Clinical Lead', seniority: 'Senior individual', region: 'South East', propertyValue: 540000, signal: 'high' },
+    { name: 'Tom Reilly', domain: 'gmail.com', company: '—', jobTitle: 'Self-employed', seniority: 'Other / unknown', region: 'North West', propertyValue: 285000, signal: 'low' },
+    { name: 'Folake Bello', domain: 'hsbc.com', company: 'HSBC', jobTitle: 'VP, Risk', seniority: 'Director / Head', region: 'London', propertyValue: 720000, signal: 'high' },
+    { name: 'Sara Mensah', domain: 'nhs.net', company: 'NHS', jobTitle: 'GP', seniority: 'Senior individual', region: 'Midlands', propertyValue: 410000, signal: 'med' },
+    { name: 'Chidi Okeke', domain: 'gmail.com', company: '—', jobTitle: 'Teacher', seniority: 'Manager', region: 'Yorkshire & NE', propertyValue: 230000, signal: 'low' },
+    { name: 'Aisha Khan', domain: 'arm.com', company: 'Arm', jobTitle: 'Principal Engineer', seniority: 'Senior individual', region: 'South West & Wales', propertyValue: 480000, signal: 'med' },
+    { name: 'James Whitfield', domain: 'foundersco.io', company: 'Founders & Co', jobTitle: 'Founder / CEO', seniority: 'C-suite / Founder', region: 'London', propertyValue: 1180000, signal: 'high' },
+    { name: 'Priya Nair', domain: 'gmail.com', company: '—', jobTitle: 'Marketing Manager', seniority: 'Manager', region: 'South East', propertyValue: 360000, signal: 'med' },
+  ],
+  note: 'High-value signal: 34 leads are C-suite / founders, concentrated in London + the South East across tech & finance, on higher property bands (£600k+). Route these to your best closers — they convert at a higher fee and refer.',
+};
+
+// Lead categories — the in-depth "what category a lead is", derived from what they SAY on
+// calls (the call-voice taxonomy). Each category opens the verbatim words that triggered it
+// + the routing. Counts are 30-day base; the page scales them by the selected window. DEMO.
+const LEAD_CATEGORIES = {
+  kpis: [
+    { label: 'Leads categorised', value: '88%', sub: 'from call voice', tone: 'good', deltaPct: 6, good: true },
+    { label: 'Ready to instruct', value: '42', sub: 'hot — route to closers', tone: 'good', deltaPct: 14, good: true },
+    { label: 'Price-led', value: '31%', sub: 'cheapest + comparison', tone: 'warn', deltaPct: 3, good: false },
+    { label: 'At risk', value: '18', sub: 'frustrated / complaint-risk', tone: 'bad', deltaPct: -2, good: true },
+  ],
+  groups: [
+    {
+      key: 'readiness', title: 'Buyer readiness & intent', caption: 'how ready to instruct — click for the words that triggered it', tone: 'good',
+      items: [
+        { key: 'ready', label: 'Ready to Instruct', count: 42, calls: 42, trend: [6, 8, 9, 11, 12, 14], sample: [
+          { agent: 'Dej A', lead: 'Folake Bello', date: '18 Jun', clientSaid: "We've had our offer accepted on Friday and need a solicitor straight away.", note: 'Route: HOT — senior closer, same-day callback, push the instruction pack in minutes.' },
+          { agent: 'Jonny Green', lead: 'Karen Howe', date: '17 Jun', clientSaid: 'Can you send me the bill so I can pay and get the ball rolling?', note: 'Route: instruct now; do not put in nurture.' },
+        ] },
+        { key: 'comparing', label: 'Comparing Quotes', count: 36, calls: 36, trend: [4, 6, 7, 8, 9, 10], sample: [
+          { agent: 'Helen Sadler', lead: 'Ryan Darlaston', date: '20 May', clientSaid: "I'm just ringing round a few solicitors before I decide.", note: 'Route: closer trained on fee objections; itemised no-hidden-extras quote within 24h; log the competitor named.' },
+        ] },
+        { key: 'depositready', label: 'Deposit-Ready', count: 21, calls: 21, trend: [2, 3, 3, 4, 5, 6], sample: [
+          { agent: 'Dej A', lead: 'James Whitfield', date: '15 Jun', clientSaid: "We're cash buyers, so as soon as we offer we'll want to move quickly.", note: 'Route: high-value warm; quote-on-file + prompt callback when a property is found.' },
+        ] },
+        { key: 'early', label: 'Early — Not On Market', count: 29, calls: 29, trend: [5, 6, 6, 7, 7, 8], sample: [
+          { agent: 'Jonny Green', lead: 'Sara Mensah', date: '12 Jun', clientSaid: "We haven't put ours on the market yet, just working out the costs.", note: 'Route: medium-term nurture with a quote validity window; re-qualify before it cools.' },
+        ] },
+        { key: 'curious', label: 'Just Curious', count: 24, calls: 24, trend: [3, 3, 4, 4, 5, 5], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '10 Jun', clientSaid: "I'm not actually buying yet, just wanted to see roughly what it costs.", note: 'Route: self-serve quote link + explainer; long-term automated nurture; suppress from closer lists.' },
+        ] },
+        { key: 'chain', label: 'Stalled by Chain', count: 17, calls: 17, trend: [2, 3, 3, 4, 4, 5], sample: [
+          { agent: 'Dej A', lead: 'Chidi Okeke', date: '9 Jun', clientSaid: "We're ready our end but the people we're buying from haven't found anywhere.", note: 'Route: instruct if they commit; chain-aware expectations + proactive chain chasing.' },
+        ] },
+      ],
+    },
+    {
+      key: 'price', title: 'Price sensitivity', caption: 'how they decide on fee — click for the words', tone: 'warn',
+      items: [
+        { key: 'compsite', label: 'Comparison-Site Anchored', count: 31, calls: 31, trend: [4, 5, 6, 6, 7, 8], sample: [
+          { agent: 'Dej A', lead: '—', date: '14 Jun', clientSaid: 'Your website quoted me 720 all in, is that the final figure?', note: 'Route: speed-to-lead (call within minutes); confirm the online estimate line-by-line, surface omitted disbursements.' },
+        ] },
+        { key: 'cheapest', label: 'Cheapest Wins', count: 22, calls: 22, trend: [3, 3, 4, 4, 5, 5], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '12 Jun', clientSaid: "Who's gonna do it cheapest? That's all I really care about.", note: 'Route: fixed-fee handler; price-match if margin allows; flag low-margin; qualify out fast if we cannot compete.' },
+        ] },
+        { key: 'value', label: 'Value Over Price', count: 19, calls: 19, trend: [2, 3, 3, 4, 4, 5], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '11 Jun', clientSaid: "I don't mind paying a bit more, I just want someone who'll actually answer the phone.", note: 'Route: relationship closer + named contact; lead on responsiveness, not fee.' },
+        ] },
+        { key: 'hiddenfee', label: 'Hidden-Fee Wary', count: 16, calls: 16, trend: [2, 2, 3, 3, 4, 4], sample: [
+          { agent: 'Dej A', lead: '—', date: '10 Jun', clientSaid: "Is that everything, or are there extras you're gonna spring on me later?", note: 'Route: fully itemised all-in quote in writing before the call ends; name leasehold/expedite supplements up front.' },
+        ] },
+      ],
+    },
+    {
+      key: 'urgency', title: 'Urgency & life situation', caption: 'what is driving the move', tone: 'navy',
+      items: [
+        { key: 'ftb', label: 'First-Time-Buyer Anxious', count: 18, calls: 18, trend: [2, 3, 3, 4, 4, 5], sample: [
+          { agent: 'Jonny Green', lead: '—', date: '9 Jun', clientSaid: "It's our first time, we don't really know how any of this works.", note: 'Route: patient educator; plain-English explainer + step-by-step; reassurance reduces churn.' },
+        ] },
+        { key: 'deadline', label: 'Completion Deadline', count: 14, calls: 14, trend: [1, 2, 2, 3, 3, 4], sample: [
+          { agent: 'Helen Sadler', lead: 'Elizabeth Pearce', date: '11 Jun', clientSaid: "We're getting married Saturday and need to exchange before then.", note: 'Route: fast-track; senior fee-earner; protect the date with proactive chasing.' },
+        ] },
+        { key: 'relocating', label: 'Relocating / Job Move', count: 11, calls: 11, trend: [1, 1, 2, 2, 3, 3], sample: [
+          { agent: 'Dej A', lead: '—', date: '8 Jun', clientSaid: "I'm moving for a new job and need to be in by next month.", note: 'Route: time-bound; online-first firm is a fit; emphasise no-office-visits.' },
+        ] },
+        { key: 'probate', label: 'Divorce / Probate', count: 7, calls: 7, trend: [1, 1, 1, 2, 1, 2], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '6 Jun', clientSaid: "It's a sale after a bereavement, I just want it handled sensitively.", note: 'Route: empathetic handler; flag for sensitivity; allow more time.' },
+        ] },
+      ],
+    },
+    {
+      key: 'comms', title: 'Communication & risk', caption: 'how they talk — and complaint risk', tone: 'bad',
+      items: [
+        { key: 'confused', label: 'Confused / Needs Education', count: 23, calls: 23, trend: [3, 4, 4, 5, 5, 6], sample: [
+          { agent: 'Dej A', lead: '—', date: '10 Jun', clientSaid: "I had to Google what that even meant, I don't know what that is.", note: 'Route: educate in plain English; send the explainer; do not assume knowledge.' },
+        ] },
+        { key: 'frustrated', label: 'Frustrated / Complaint-Risk', count: 18, calls: 18, trend: [4, 4, 3, 3, 3, 2], sample: [
+          { agent: 'Jonny Green', lead: 'Barry Pudney', date: '17 Jun', clientSaid: "My mate got hit with loads of admin fees at the end, that won't happen here will it?", note: 'Route: transparency script + written all-in quote; flag for complaint-risk monitoring.' },
+        ] },
+        { key: 'transactional', label: 'Transactional / Curt', count: 15, calls: 15, trend: [2, 2, 3, 3, 3, 3], sample: [
+          { agent: 'Helen Sadler', lead: '—', date: '9 Jun', clientSaid: 'Just give me the price and what you need from me.', note: 'Route: keep it brief + factual; skip the relationship-building, send the quote.' },
+        ] },
+        { key: 'champion', label: 'Champion / Advocate', count: 12, calls: 12, trend: [1, 2, 2, 3, 3, 4], sample: [
+          { agent: 'Dej A', lead: 'Francine Lewis', date: '3 Jun', clientSaid: "You've been brilliant — I'll definitely recommend you.", note: 'Route: ask for a review + referral after completion; potential repeat client.' },
+        ] },
+      ],
+    },
   ],
 };
 
@@ -575,17 +2003,68 @@ const CALL_OBJECTION_HANDLING = [
 
 export const RPC = {
   get_agent_quota_overview: () => quotaOverview(),
-  get_comparison_lead_stats: () => ({ total: COMPARISON_LEADS.length, today: COMPARISON_LEADS.filter((c) => c.created_at >= todayMid).length, quoted: COMPARISON_LEADS.filter((c) => c.status === 'quoted').length, new: COMPARISON_LEADS.filter((c) => c.status === 'new').length, new_count: COMPARISON_LEADS.filter((c) => c.status === 'new').length, callbacks: COMPARISON_LEADS.filter((c) => c.quote_breakdown && c.quote_breakdown.callbackRequested).length, instructions: 3, sold: COMPARISON_LEADS.filter((c) => c.status === 'sold').length }),
+  get_comparison_lead_stats: () => [{
+    total_count: COMPARISON_LEADS.length,
+    today_count: COMPARISON_LEADS.filter((c) => c.created_at >= todayMid).length,
+    quoted_count: COMPARISON_LEADS.filter((c) => c.status === 'quoted').length,
+    new_count: COMPARISON_LEADS.filter((c) => c.status === 'new').length,
+    callbacks_count: COMPARISON_LEADS.filter((c) => c.quote_breakdown && c.quote_breakdown.callbackRequested).length,
+    site_counts: [],
+    firm_stats: SOLICITOR_FIRMS.map((f, i) => {
+      const appearances = 120 - i * 18;
+      const rates = [0.18, 0.14, 0.22, 0.09, 0.12];
+      const totalLeads = Math.round(appearances * rates[i % rates.length]);
+      return { firmId: f.id, firmName: f.name, totalLeads, todayLeads: Math.max(1, Math.round(totalLeads / 8)), callbackLeads: Math.round(totalLeads / 3), newLeads: Math.round(totalLeads / 4), totalRevenue: totalLeads * 920, appearances, siteBreakdown: [] };
+    }),
+  }],
   count_today_appearances_by_firm: () => SOLICITOR_FIRMS.map((f, i) => ({ firm_id: f.id, appearance_count: 30 + i * 7 })),
   get_overview_report: () => OVERVIEW_REPORT,
   get_pipeline_pulse: () => PIPELINE_PULSE,
   get_daily_pipeline: () => DAILY_PIPELINE,
   get_finance_overview: () => FINANCE_OVERVIEW,
   get_matters: () => MATTERS,
+  get_firm_analytics: () => FIRM_ANALYTICS,
+  get_firm_trends: () => FIRM_TRENDS,
+  get_team_performance: () => TEAM_PERFORMANCE,
+  get_marketing: () => MARKETING,
+  get_email_analytics: () => MAIL,
+  get_call_verification: () => CALL_VERIFICATION,
+  get_inbound_overview: () => INBOUND_OVERVIEW,
+  get_callback_funnel: () => CALLBACK_FUNNEL,
+  get_agent_day: () => AGENT_DAY,
+  get_instruction_insights: () => INSTRUCTION_INSIGHTS,
+  get_finance_insights: () => FINANCE_INSIGHTS,
+  get_comparison_engine: () => COMPARISON_ENGINE,
+  get_matter_progression: () => MATTER_PROGRESSION,
+  get_agent_workspace: () => AGENT_WORKSPACE,
+  get_conversations: () => CONVERSATIONS,
+  get_revenue_opportunities: () => REVENUE_OPPORTUNITIES,
+  get_compliance: () => COMPLIANCE,
+  get_lead_resale: () => LEAD_RESALE,
+  get_resale_queue: () => RESALE_QUEUE,
+  get_ops_health: () => OPS_HEALTH,
+  get_client_experience: () => CLIENT_EXPERIENCE,
+  get_sales_velocity: () => SALES_VELOCITY,
+  get_capacity: () => CAPACITY,
+  get_forecast: () => FORECAST,
+  get_timing: () => TIMING,
+  get_call_insights: () => CALL_INSIGHTS,
+  get_lead_analytics: () => LEAD_ANALYTICS,
+  get_lead_enrichment: () => LEAD_ENRICHMENT,
+  get_lead_categories: () => LEAD_CATEGORIES,
   get_lead_quality_breakdown: () => [],
   get_disqualified_breakdown: () => [{ source: 'Comparison Site', total: 12, fake: 4, duplicate: 3, wrong_number: 5 }, { source: 'Hoowla', total: 6, fake: 2, duplicate: 2, wrong_number: 2 }],
   get_instruction_report_summary: () => ({ total_instructions: 47, agents_credited: 5, todays_instructions: 7, missing_attribution: 10, leads_created: 342, conversion: 13.7 }),
-  get_instruction_report_breakdowns: () => ({ by_agent: AGENTS.map((a, i) => ({ value: a.name, count: 12 - i * 2, conversion: 18 - i })), by_source: [{ value: 'Comparison Site', count: 31, conversion: 16.6 }], by_utm_source: [{ value: 'google', count: 28, conversion: 15.1 }], by_campaign: [{ value: 'Conveyancing-Brand', count: 19, conversion: 18.2 }], by_keyword: [{ value: 'house sale solicitor', count: 8, conversion: 21 }] }),
+  get_instruction_report_breakdowns: () => {
+    const mk = (dimension: string, dimension_value: string, total_leads: number, instructed_leads: number) => ({ dimension, dimension_value, total_leads, instructed_leads, conversion_rate: total_leads > 0 ? Math.round((instructed_leads / total_leads) * 1000) / 10 : 0, missing_attribution_count: 0 });
+    return [
+      mk('source', 'Comparison Site', 124, 18), mk('source', 'Hoowla', 58, 11), mk('source', 'Direct', 41, 9), mk('source', 'Referral', 28, 7), mk('source', 'Google Ads', 42, 4),
+      mk('utm_source', 'google', 86, 12), mk('utm_source', 'bing', 24, 3), mk('utm_source', 'facebook', 31, 4),
+      mk('utm_campaign', 'Conveyancing-Brand', 64, 12), mk('utm_campaign', 'Remortgage-Q2', 38, 5), mk('utm_campaign', 'Leasehold-Push', 22, 2),
+      mk('utm_term', 'house sale solicitor', 28, 6), mk('utm_term', 'conveyancing quote', 41, 5), mk('utm_term', 'cheap conveyancing', 33, 2),
+      mk('credited_user', 'Louise Forshaw', 96, 12), mk('credited_user', 'Sarah Okafor', 74, 8), mk('credited_user', 'James Okoro', 58, 5),
+    ];
+  },
   get_instruction_report_leads: () => LEADS.slice(0, 6).map((l) => ({ id: l.id, name: l.name, email: l.email, instruction_date: iso(0).slice(0, 10), credited_agent: l.assigned_to_name, source: l.source, status: l.status, stage: l.stage, instruction_units: 1 })),
   get_instruction_report_export: () => [],
   get_call_analysis_summary: () => ({ calls_made: callSum('total_calls'), conversations: callSum('answered_calls'), leads_reached: callSum('unique_leads_contacted'), likely_to_instruct: callSum('instruction_intent'), instructions: callSum('official_instructions'), speed_to_lead_seconds: callWeightedSpeed() }),

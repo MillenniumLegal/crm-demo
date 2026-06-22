@@ -666,7 +666,7 @@ export async function fetchLeads(filters?: LeadFilters): Promise<Lead[]> {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const leadIdsForQuotes = rows
         .map(l => l.id)
-        .filter(id => id && uuidRegex.test(id));
+        .filter(id => id && (uuidRegex.test(id) || /^lead-/.test(id)));
       
       const quoteMap = new Map<string, number>();
       const quoteStatusMap = new Map<string, string>(); // Initialize outside the if block
@@ -1077,7 +1077,7 @@ export async function fetchLeadsPage(
   // Filter out invalid UUIDs before querying (prevents 400 errors)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const allLeadIds = rows.map(lead => lead.id);
-  const validLeadIds = allLeadIds.filter(id => id && uuidRegex.test(id));
+  const validLeadIds = allLeadIds.filter(id => id && (uuidRegex.test(id) || /^lead-/.test(id)));
 
   const quoteMap = new Map<string, number>();
   
@@ -1489,7 +1489,7 @@ export async function fetchLeadById(id: string): Promise<Lead | null> {
 export async function fetchLeadsByIds(ids: string[]): Promise<Lead[]> {
   try {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const uniqueIds = Array.from(new Set(ids.filter(id => id && uuidRegex.test(id))));
+    const uniqueIds = Array.from(new Set(ids.filter(id => id && (uuidRegex.test(id) || /^lead-/.test(id)))));
 
     if (uniqueIds.length === 0) {
       return [];

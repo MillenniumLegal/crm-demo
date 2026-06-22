@@ -120,7 +120,7 @@ export async function fetchTasks(filters?: {
 
     if (filters?.leadIds) {
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const validLeadIds = Array.from(new Set(filters.leadIds.filter(id => id && uuidRegex.test(id))));
+      const validLeadIds = Array.from(new Set(filters.leadIds.filter(id => id && (uuidRegex.test(id) || /^lead-/.test(id)))));
       if (validLeadIds.length === 0) {
         return [];
       }

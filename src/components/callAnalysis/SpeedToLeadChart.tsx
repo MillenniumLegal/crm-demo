@@ -4,7 +4,7 @@
 // vertical threshold markers (3h green, 8h amber) sit on the same scale so the
 // firm owner can see at a glance who is inside SLA.
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Zap } from 'lucide-react';
 import { CallAgentDailyBreakdown } from '@/services/threecxService';
 import { formatDelay } from './format';
@@ -32,12 +32,19 @@ const LEGEND: Array<{ tone: 'good' | 'warn' | 'bad'; label: string }> = [
 ];
 
 export const SpeedToLeadChart: React.FC<SpeedToLeadChartProps> = ({ agents }) => {
+  // Working-hours toggle: raw clock time vs business minutes (Mon–Fri 9–5, Europe/London).
+  // The demo approximation strips ~60% off-hours dead time; in ty this is the real
+  // business-minutes calc excluding nights, weekends and UK bank holidays. SLA stays 3h/8h
+  // — but measured in business hours, so overnight leads stop being unfairly penalised.
+  const [businessHours, setBusinessHours] = useState(false);
+  const adj = (s: number) => (businessHours ? Math.round(s * 0.4) : s);
+
   const rows = agents
     .filter((a) => a.averageFirstOutboundDelaySeconds > 0)
     .map((a) => ({
       name: a.agentName,
       id: a.agentUserId || a.agentName,
-      seconds: a.averageFirstOutboundDelaySeconds,
+      seconds: adj(a.averageFirstOutboundDelaySeconds),
     }))
     .sort((a, b) => a.seconds - b.seconds); // fastest first
 
@@ -77,7 +84,24 @@ export const SpeedToLeadChart: React.FC<SpeedToLeadChartProps> = ({ agents }) =>
           ))}
         </div>
       </div>
-      <p className="mt-0.5 text-xs text-gray-400">Creation → first dial · shorter is better</p>
+      <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-gray-400">
+          Creation → first dial · shorter is better
+          {businessHours && <span className="ml-1 text-navy-600">· business hours (Mon–Fri 9–5)</span>}
+        </p>
+        <button
+          type="button"
+          onClick={() => setBusinessHours((v) => !v)}
+          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+            businessHours
+              ? 'border-navy-300 bg-navy-50 text-navy-700'
+              : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+          }`}
+          title="Toggle raw clock time vs working hours (Europe/London)"
+        >
+          {businessHours ? 'Business hours' : 'Clock time'}
+        </button>
+      </div>
 
       {/* Bars + threshold markers share one positioned track so the green 3h /
           amber 8h lines line up exactly with the proportional bar widths. */}

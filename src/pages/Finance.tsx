@@ -1,21 +1,26 @@
-// Finance hub — the money at a glance: quote/invoice/revenue KPIs, recent quotes
-// and invoices, and outstanding-payment aging. Compiles quotes + payments data.
+// Finance hub — the money at a glance: revenue trend + breakdown, the APCM AI finance
+// coach (set a target → pace + pushy advice), quote/invoice/revenue KPIs, recent quotes
+// and invoices, and outstanding-payment aging.
 
 import React, { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { fetchFinanceOverview, FinanceOverview } from '@/services/hubsService';
+import { fetchFinanceInsights, FinanceInsights } from '@/services/financeInsightsService';
 import { FinanceKpiStrip } from '@/components/hubs/FinanceKpiStrip';
 import { MoneyList } from '@/components/hubs/MoneyList';
 import { AgingBars } from '@/components/hubs/AgingBars';
+import { RevenueTrendBand } from '@/components/hubs/RevenueTrendBand';
+import { FinanceCoach } from '@/components/hubs/FinanceCoach';
 
 const Finance: React.FC = () => {
   const [data, setData] = useState<FinanceOverview | null>(null);
+  const [insights, setInsights] = useState<FinanceInsights | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    fetchFinanceOverview()
-      .then((d) => { if (active) setData(d); })
+    Promise.all([fetchFinanceOverview(), fetchFinanceInsights()])
+      .then(([d, ins]) => { if (active) { setData(d); setInsights(ins); } })
       .catch(() => {})
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -39,6 +44,10 @@ const Finance: React.FC = () => {
       </div>
 
       <FinanceKpiStrip kpis={data.kpis} />
+
+      {insights && <FinanceCoach coach={insights.coach} />}
+
+      {insights && <RevenueTrendBand kpis={insights.kpis} revenue6mo={insights.revenue6mo} byType={insights.byType} />}
 
       <div className="grid gap-5 xl:grid-cols-3">
         <MoneyList title="Recent quotes" rows={data.recentQuotes} />

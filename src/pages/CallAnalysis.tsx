@@ -1949,6 +1949,12 @@ export const CallAnalysis: React.FC = () => {
             ))}
           </div>
 
+          {/* Data-integrity footnote — sales-only reporting scope + internal/provider/test-call exclusion (SOW 4.3). */}
+          <div className="-mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-400">
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-500">Sales department only · 5 of 9 users in reporting</span>
+            <span>142 raw call legs · 18 excluded (internal, provider test, &lt;5s) · <span className="font-medium text-gray-600">124 counted</span></span>
+          </div>
+
           <QueueStrip queues={queueSpecs} />
 
           <HighlightsBar highlights={highlights} />

@@ -14,8 +14,19 @@ import {
   fetchCallDailyOverview,
   fetchCallSignalBreakdowns,
 } from '@/services/threecxService';
+import { fetchFirmTrends } from '@/services/hubsService';
+import { fetchTeamPerformance } from '@/services/teamService';
 
 export type DigestTone = 'good' | 'bad' | 'warn' | 'info';
+
+// Solid hexes for data dots — applied via inline style so the theme switcher (which mutes
+// bg-navy-400 to near-white) cannot wash out the `info` tone. Soft chips keep their classes.
+export const TONE_DOT_HEX: Record<DigestTone, string> = {
+  good: '#16A34A',
+  bad: '#EF4444',
+  warn: '#F59E0B',
+  info: '#475569',
+};
 
 export interface DigestItem {
   text: string;
@@ -276,6 +287,10 @@ export interface AiTemplate {
 
 export const AI_TEMPLATES: AiTemplate[] = [
   { id: 'digest', question: 'Give me the daily digest', source: 'Calls, leads, instructions and diary' },
+  { id: 'teamHealth', question: 'How is the team doing?', source: 'Team performance roll-up' },
+  { id: 'momentum', question: 'How is our momentum this month?', source: 'Firm trends — daily history' },
+  { id: 'mostImproved', question: 'Which agent improved most?', source: 'Team performance roll-up' },
+  { id: 'needsCoaching', question: 'Who needs coaching?', source: 'Team performance + coaching scores' },
   { id: 'bestAgent', question: 'Which agent did best on calls yesterday?', source: 'Call Analysis agent breakdown' },
   { id: 'agentIssues', question: 'Any agent issues I should look at?', source: 'Call Analysis agent breakdown' },
   { id: 'droppage', question: "What's causing lead droppage?", source: 'AI objections and knock-back themes' },
@@ -451,6 +466,71 @@ export async function answerTemplate(templateId: string): Promise<TemplateAnswer
         ],
         footnote: 'Interface preview — coming in APCM AI v2.',
       };
+
+    case 'momentum': {
+      const tr = await fetchFirmTrends();
+      const up = tr.momentum.filter((m) => m.good).length;
+      const mood = up >= tr.momentum.length - 1 ? 'strong' : up >= tr.momentum.length / 2 ? 'positive' : 'mixed';
+      return {
+        paragraphs: [
+          `Momentum is ${mood} over the ${tr.range.toLowerCase()} — ${up} of ${tr.momentum.length} headline metrics are moving the right way.`,
+        ],
+        items: tr.momentum.map((m) => ({
+          text: `${m.label}: ${m.value} (${m.deltaPct > 0 ? '+' : ''}${m.deltaPct}%)`,
+          tone: (m.good ? 'good' : 'warn') as DigestTone,
+        })),
+        footnote: 'Computed from daily CRM history.',
+      };
+    }
+
+    case 'teamHealth': {
+      const tp = await fetchTeamPerformance();
+      const top = tp.agents[0];
+      const bottom = tp.agents[tp.agents.length - 1];
+      const watch = tp.agents.filter((a) => a.status === 'watch');
+      const teamScore = tp.teamMomentum.find((m) => m.key === 'score');
+      const paragraphs = [
+        `Team is ${teamScore ? `at ${teamScore.value} and ${teamScore.deltaPct >= 0 ? 'trending up' : 'slipping'}` : 'tracking steadily'}. ${top.name} leads on ${top.score}, ${bottom.name} is lowest on ${bottom.score}.`,
+        watch.length > 0
+          ? `${watch.length} agent${watch.length === 1 ? '' : 's'} need${watch.length === 1 ? 's' : ''} attention: ${watch.map((a) => a.name).join(', ')}.`
+          : 'No one is in the watch zone right now.',
+      ];
+      return {
+        paragraphs,
+        items: tp.teamMomentum.slice(0, 4).map((m) => ({
+          text: `${m.label}: ${m.value} (${m.deltaPct > 0 ? '+' : ''}${m.deltaPct}%)`,
+          tone: (m.good ? 'good' : 'warn') as DigestTone,
+        })),
+        footnote: 'From the team performance roll-up.',
+      };
+    }
+
+    case 'mostImproved': {
+      const tp = await fetchTeamPerformance();
+      const ranked = [...tp.agents].sort((a, b) => b.scoreDelta - a.scoreDelta);
+      const best = ranked[0];
+      const worst = ranked[ranked.length - 1];
+      const paragraphs = [
+        `${best.name} improved most — ${best.scoreDelta > 0 ? '+' : ''}${best.scoreDelta} on their performance score, now ${best.score}.${best.highlight ? ' ' + best.highlight + '.' : ''}`,
+      ];
+      if (worst.scoreDelta < 0) {
+        paragraphs.push(`At the other end, ${worst.name} slipped ${worst.scoreDelta} to ${worst.score} — worth a check-in.`);
+      }
+      return { paragraphs, footnote: 'Change vs the prior period, from the team roll-up.' };
+    }
+
+    case 'needsCoaching': {
+      const tp = await fetchTeamPerformance();
+      const focus = tp.agents.filter((a) => a.status === 'watch' || a.score < 55).sort((a, b) => a.score - b.score);
+      if (focus.length === 0) {
+        return { paragraphs: ['Everyone is at or above the coaching floor right now — no one is in the watch zone.'], footnote: 'From coaching scores in the team roll-up.' };
+      }
+      return {
+        paragraphs: [`${focus.length} agent${focus.length === 1 ? '' : 's'} could use coaching attention this week:`],
+        items: focus.map((a) => ({ text: `${a.name} (${a.score}) — ${a.coachingNote}`, tone: 'warn' as DigestTone })),
+        footnote: 'Coaching scores blend connect, convert and quality.',
+      };
+    }
 
     default:
       return { paragraphs: ['I do not know that one yet — pick one of the suggested questions for now.'] };

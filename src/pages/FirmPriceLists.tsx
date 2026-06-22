@@ -407,6 +407,192 @@ export const FirmPriceLists: React.FC = () => {
         />
       </div>
 
+      {/* ─── Compare firms matrix (additive analysis card) ───────────────── */}
+      {(() => {
+        const compareFirms = firms.filter(f => f.is_active);
+        // Build unique rows keyed by transaction_type + property_type, ordered by TRANSACTION_TYPES
+        const rowKeys = Array.from(
+          new Set(priceLists.map(p => `${p.transaction_type}||${p.property_type}`))
+        ).sort((a, b) => {
+          const [ta, pa] = a.split('||');
+          const [tb, pb] = b.split('||');
+          const ti = TRANSACTION_TYPES.indexOf(ta as any) - TRANSACTION_TYPES.indexOf(tb as any);
+          return ti !== 0 ? ti : pa.localeCompare(pb);
+        });
+
+        if (compareFirms.length < 2 || rowKeys.length === 0) return null;
+
+        // cell lookup: cheapest active legal_fee_ex_vat for a firm + transaction/property combo
+        const cellFee = (firmId: string, tt: string, pt: string): number | null => {
+          const matches = priceLists.filter(
+            p => p.firm_id === firmId && p.transaction_type === tt && p.property_type === pt && p.is_active
+          );
+          if (matches.length === 0) return null;
+          return Math.min(...matches.map(m => m.legal_fee_ex_vat));
+        };
+
+        return (
+          <div className="mb-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900">Compare firms</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Legal fee (ex VAT) by transaction &amp; property type. Cheapest firm in each row is highlighted.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
+                    <th className="py-2 px-3 text-left sticky left-0 bg-white">Row</th>
+                    {compareFirms.map(f => (
+                      <th key={f.id} className="py-2 px-3 text-right whitespace-nowrap">{f.name}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {rowKeys.map(key => {
+                    const [tt, pt] = key.split('||');
+                    const fees = compareFirms.map(f => cellFee(f.id, tt, pt));
+                    const present = fees.filter((v): v is number => v != null);
+                    const cheapest = present.length ? Math.min(...present) : null;
+                    return (
+                      <tr key={key} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-2.5 px-3 text-left sticky left-0 bg-white">
+                          <span className="font-medium text-gray-900">{tt}</span>
+                          <span className="text-gray-400"> · {pt}</span>
+                        </td>
+                        {compareFirms.map((f, i) => {
+                          const v = fees[i];
+                          const isCheapest = v != null && cheapest != null && v === cheapest;
+                          return (
+                            <td
+                              key={f.id}
+                              className="py-2.5 px-3 text-right font-semibold"
+                              style={
+                                isCheapest
+                                  ? { color: '#15803d', backgroundColor: '#f0fdf4' }
+                                  : { color: v != null ? '#111827' : '#9ca3af' }
+                              }
+                            >
+                              {v != null ? formatCurrency(v) : '—'}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ─── Pricing outliers (additive analysis card) ───────────────────── */}
+      {(() => {
+        // Build per-band median legal_fee_ex_vat across firms, then flag firm
+        // prices that sit >30% above their band median.
+        const active = priceLists.filter(p => p.is_active && p.legal_fee_ex_vat > 0);
+        const firmName = (firmId: string) =>
+          firms.find(f => f.id === firmId)?.name ?? 'Unknown firm';
+
+        const median = (nums: number[]): number => {
+          const s = [...nums].sort((a, b) => a - b);
+          const mid = Math.floor(s.length / 2);
+          return s.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+        };
+
+        // Group fees by transaction_type + property_type band
+        const bands = new Map<string, number[]>();
+        for (const p of active) {
+          const key = `${p.transaction_type}||${p.property_type}`;
+          if (!bands.has(key)) bands.set(key, []);
+          bands.get(key)!.push(p.legal_fee_ex_vat);
+        }
+
+        const bandMedian = new Map<string, number>();
+        bands.forEach((fees, key) => {
+          if (fees.length > 0) bandMedian.set(key, median(fees));
+        });
+
+        type Outlier = {
+          id: string; firm: string; tt: string; pt: string;
+          fee: number; med: number; pct: number;
+        };
+        const outliers: Outlier[] = [];
+        for (const p of active) {
+          const key = `${p.transaction_type}||${p.property_type}`;
+          const med = bandMedian.get(key);
+          if (med == null || med <= 0) continue; // guard divide-by-zero
+          const pct = ((p.legal_fee_ex_vat - med) / med) * 100;
+          if (pct > 30) {
+            outliers.push({
+              id: p.id,
+              firm: firmName(p.firm_id),
+              tt: p.transaction_type,
+              pt: p.property_type,
+              fee: p.legal_fee_ex_vat,
+              med,
+              pct,
+            });
+          }
+        }
+        outliers.sort((a, b) => b.pct - a.pct);
+
+        return (
+          <div className="mb-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" style={{ color: '#b45309' }} />
+                Pricing outliers
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Active firm prices more than 30% above the cross-firm median for the same
+                transaction &amp; property band.
+              </p>
+            </div>
+            {outliers.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">No outliers</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase tracking-wider">
+                      <th className="py-2 px-3 text-left">Firm</th>
+                      <th className="py-2 px-3 text-left">Band</th>
+                      <th className="py-2 px-3 text-right">Fee (ex VAT)</th>
+                      <th className="py-2 px-3 text-right">Band median</th>
+                      <th className="py-2 px-3 text-right">Above median</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {outliers.map(o => (
+                      <tr key={o.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-2.5 px-3 font-medium text-gray-900">{o.firm}</td>
+                        <td className="py-2.5 px-3 text-gray-600">
+                          <span className="font-medium text-gray-700">{o.tt}</span>
+                          <span className="text-gray-400"> · {o.pt}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-gray-900">{formatCurrency(o.fee)}</td>
+                        <td className="py-2.5 px-3 text-right text-gray-500">{formatCurrency(o.med)}</td>
+                        <td className="py-2.5 px-3 text-right">
+                          <span
+                            className="inline-block px-2 py-0.5 rounded text-xs font-semibold"
+                            style={{ color: '#b45309', backgroundColor: '#fffbeb' }}
+                          >
+                            +{o.pct.toFixed(0)}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Firm list */}
       <div className="space-y-3">
         {filteredFirms.length === 0 ? (

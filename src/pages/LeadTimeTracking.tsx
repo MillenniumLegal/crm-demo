@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { logActivity } from '@/services/activityService';
 import { AssignLeadModal } from '@/components/AssignLeadModal';
 import { canAgentReceiveLead } from '@/services/quotaService';
+import { RankedBarList } from '@/components/analytics/RankedBarList';
 import {
   Clock,
   AlertTriangle,
@@ -120,6 +121,78 @@ export const LeadTimeTracking: React.FC = () => {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedLeadForAssign, setSelectedLeadForAssign] = useState<LeadTimeData | null>(null);
+
+  // Account-wide stats (additive): fetch ALL matching leads once for an account-level SLA view.
+  // Mirrors the same base filters as loadLeads but pulls a large page in one call.
+  const [allLeads, setAllLeads] = useState<LeadTimeData[]>([]);
+  const [allLeadsLoading, setAllLeadsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAllLeads = async () => {
+      setAllLeadsLoading(true);
+      try {
+        const ageThreshold = new Date();
+        ageThreshold.setHours(ageThreshold.getHours() - 24);
+
+        const filters: any = {
+          status: filterStatus !== 'All' ? filterStatus : undefined,
+          source: filterSource !== 'All' ? filterSource : undefined,
+        };
+
+        if (filterAge === 'New') {
+          filters.createdAfter = ageThreshold.toISOString();
+        } else if (filterAge === 'Old') {
+          filters.createdBefore = ageThreshold.toISOString();
+        } else if (filterAge === 'Overdue') {
+          filters.isOverdue = true;
+        }
+
+        if (user?.role === 'Agent' && user?.id) {
+          filters.userId = user.id;
+        }
+
+        const result = await fetchLeadsPage(filters, {
+          limit: 1000,
+          offset: 0,
+          sortBy: 'created_at',
+          sortDirection: 'asc',
+        });
+
+        if (!cancelled) {
+          setAllLeads(result.leads.map(transformLeadToTimeData));
+        }
+      } catch (err) {
+        console.error('Error loading account-wide lead time data:', err);
+        if (!cancelled) setAllLeads([]);
+      } finally {
+        if (!cancelled) setAllLeadsLoading(false);
+      }
+    };
+
+    if (user) {
+      loadAllLeads();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [filterAge, filterStatus, filterSource, user?.id, user?.role, user]);
+
+  // Account-wide SLA aggregates (guard empty / divide-by-zero)
+  const accountStats = (() => {
+    const total = allLeads.length;
+    if (total === 0) {
+      return { total: 0, avgAge: 0, overduePct: 0, avgTimeToFirstContact: null as number | null };
+    }
+    const avgAge = allLeads.reduce((sum, l) => sum + l.ageInHours, 0) / total;
+    const overdueCount = allLeads.filter((l) => l.isOverdue).length;
+    const overduePct = (overdueCount / total) * 100;
+    const contacted = allLeads.filter((l) => typeof l.timeToFirstContact === 'number');
+    const avgTimeToFirstContact = contacted.length > 0
+      ? contacted.reduce((sum, l) => sum + (l.timeToFirstContact || 0), 0) / contacted.length
+      : null;
+    return { total, avgAge, overduePct, avgTimeToFirstContact };
+  })();
 
   // Fetch agents for bulk assign
   useEffect(() => {
@@ -672,6 +745,69 @@ export const LeadTimeTracking: React.FC = () => {
         </div>
       </div>
 
+      {/* Account-wide SLA strip (additive): aggregates ALL matching leads, not just this page */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Across all leads</h3>
+            <p className="text-sm text-gray-500">
+              Account-wide SLA computed over every matching lead
+              {allLeadsLoading ? '' : ` (${accountStats.total.toLocaleString()} leads)`}
+            </p>
+          </div>
+          <span
+            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700"
+          >
+            All matching
+          </span>
+        </div>
+        {allLeadsLoading ? (
+          <div className="flex items-center text-sm text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Loading account-wide data…
+          </div>
+        ) : accountStats.total === 0 ? (
+          <p className="text-sm text-gray-500">No matching leads found.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-lg p-4" style={{ backgroundColor: '#EEF2FF' }}>
+              <div className="flex items-center text-xs font-medium text-gray-600 mb-1">
+                <Clock className="h-4 w-4 mr-1.5" style={{ color: '#6366F1' }} />
+                Avg Lead Age
+              </div>
+              <p className="text-2xl font-bold" style={{ color: '#3730A3' }}>
+                {formatAge(accountStats.avgAge)}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {(accountStats.avgAge / 24).toFixed(1)} days
+              </p>
+            </div>
+            <div className="rounded-lg p-4" style={{ backgroundColor: '#FEF2F2' }}>
+              <div className="flex items-center text-xs font-medium text-gray-600 mb-1">
+                <AlertTriangle className="h-4 w-4 mr-1.5" style={{ color: '#EF4444' }} />
+                Overdue
+              </div>
+              <p className="text-2xl font-bold" style={{ color: '#B91C1C' }}>
+                {accountStats.overduePct.toFixed(1)}%
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">of all matching leads</p>
+            </div>
+            <div className="rounded-lg p-4" style={{ backgroundColor: '#ECFDF5' }}>
+              <div className="flex items-center text-xs font-medium text-gray-600 mb-1">
+                <TrendingUp className="h-4 w-4 mr-1.5" style={{ color: '#10B981' }} />
+                Avg Time to First Contact
+              </div>
+              <p className="text-2xl font-bold" style={{ color: '#047857' }}>
+                {accountStats.avgTimeToFirstContact !== null
+                  ? formatAge(accountStats.avgTimeToFirstContact)
+                  : 'N/A'}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">across contacted leads</p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="card">
@@ -729,6 +865,31 @@ export const LeadTimeTracking: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Lead Age Distribution (additive analysis visual) */}
+      {(() => {
+        const buckets: { label: string; test: (h: number) => boolean }[] = [
+          { label: '<1h', test: (h) => h < 1 },
+          { label: '1-6h', test: (h) => h >= 1 && h < 6 },
+          { label: '6-12h', test: (h) => h >= 6 && h < 12 },
+          { label: '12-24h', test: (h) => h >= 12 && h < 24 },
+          { label: '1-3d', test: (h) => h >= 24 && h < 72 },
+          { label: '3-7d', test: (h) => h >= 72 && h < 168 },
+          { label: '7d+', test: (h) => h >= 168 },
+        ];
+        const ageItems = buckets.map((b) => ({
+          label: b.label,
+          count: leads.filter((l) => b.test(l.ageInHours)).length,
+        }));
+        return (
+          <RankedBarList
+            title="Lead age distribution"
+            caption={`Loaded leads on this page bucketed by age (${leads.length} leads)`}
+            items={ageItems}
+            defaultTone="warn"
+          />
+        );
+      })()}
 
       {/* Filters */}
       <div className="card">

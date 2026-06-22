@@ -900,10 +900,93 @@ const handleCreateTask = async () => {
         </div>
       )}
 
+      {/* Today's progress strip - completion rate + stacked share bar (reads existing displayed* counts) */}
+      {!isLoading && (() => {
+        const progressTotal = displayedCompletedTasks + displayedTodayTasks + displayedOverdueTasks;
+        const completionRate = progressTotal === 0 ? 0 : Math.round((displayedCompletedTasks / progressTotal) * 100);
+        const pct = (n: number) => progressTotal === 0 ? 0 : (n / progressTotal) * 100;
+        return (
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Today's progress</p>
+                <p className="text-xs text-gray-500">{displayedCompletedTasks.toLocaleString()} of {progressTotal.toLocaleString()} tasks completed</p>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{completionRate}%</p>
+            </div>
+            <div className="flex h-3 w-full overflow-hidden rounded-full" style={{ backgroundColor: '#e5e7eb' }}>
+              <div style={{ width: `${pct(displayedCompletedTasks)}%`, backgroundColor: '#16a34a' }} title={`Completed: ${displayedCompletedTasks.toLocaleString()}`} />
+              <div style={{ width: `${pct(displayedTodayTasks)}%`, backgroundColor: '#e5e7eb' }} title={`Remaining: ${displayedTodayTasks.toLocaleString()}`} />
+              <div style={{ width: `${pct(displayedOverdueTasks)}%`, backgroundColor: '#ef4444' }} title={`Overdue: ${displayedOverdueTasks.toLocaleString()}`} />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#16a34a' }} />Completed {displayedCompletedTasks.toLocaleString()}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#e5e7eb' }} />Remaining {displayedTodayTasks.toLocaleString()}</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />Overdue {displayedOverdueTasks.toLocaleString()}</span>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Team workload - per-agent task load (managers/admins only; reads existing allLeadsWithTasks) */}
+      {!isLoading && user?.role !== 'Agent' && (() => {
+        // Group by the agent who owns each lead's tasks. DiaryTask only carries an assignedTo id,
+        // so the human-readable agent name comes from lead.assignedToName (joined on the lead).
+        const byAgent = new Map<string, { name: string; today: number; overdue: number; completed: number }>();
+        allLeadsWithTasks.forEach(lwt => {
+          const key = lwt.lead.assignedTo || 'unassigned';
+          const name = lwt.lead.assignedToName || (lwt.lead.assignedTo ? 'Unknown agent' : 'Unassigned');
+          const row = byAgent.get(key) || { name, today: 0, overdue: 0, completed: 0 };
+          row.today += lwt.todayTasks.length;
+          row.overdue += lwt.overdueTasks.length;
+          row.completed += lwt.completedTasks.length;
+          byAgent.set(key, row);
+        });
+        const agents = Array.from(byAgent.values())
+          .filter(a => a.today + a.overdue + a.completed > 0)
+          .sort((a, b) => b.overdue - a.overdue || (b.today + b.overdue) - (a.today + a.overdue));
+        if (agents.length === 0) return null;
+        const maxLoad = Math.max(1, ...agents.map(a => a.today + a.overdue + a.completed));
+        return (
+          <div className="card">
+            <div className="mb-3">
+              <p className="text-sm font-medium text-gray-700">Team workload</p>
+              <p className="text-xs text-gray-500">Open and completed tasks per agent on this page, busiest by overdue first</p>
+            </div>
+            <div className="space-y-3">
+              {agents.map((a, i) => {
+                const total = a.today + a.overdue + a.completed;
+                const w = (n: number) => (total === 0 ? 0 : (n / Math.max(total, 1)) * (total / maxLoad) * 100);
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-32 shrink-0 truncate text-sm text-gray-700" title={a.name}>{a.name}</div>
+                    <div className="flex h-2.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: '#f3f4f6' }}>
+                      <div style={{ width: `${w(a.overdue)}%`, backgroundColor: '#ef4444' }} title={`Overdue: ${a.overdue}`} />
+                      <div style={{ width: `${w(a.today)}%`, backgroundColor: '#3b82f6' }} title={`Today: ${a.today}`} />
+                      <div style={{ width: `${w(a.completed)}%`, backgroundColor: '#16a34a' }} title={`Completed: ${a.completed}`} />
+                    </div>
+                    <div className="flex w-40 shrink-0 justify-end gap-3 text-xs tabular-nums text-gray-600">
+                      <span title="Today" style={{ color: '#2563eb' }}>{a.today} today</span>
+                      <span title="Overdue" style={{ color: '#dc2626' }}>{a.overdue} overdue</span>
+                      <span title="Completed" style={{ color: '#16a34a' }}>{a.completed} done</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />Overdue</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#3b82f6' }} />Today</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#16a34a' }} />Completed</span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Summary Cards - Clickable filter cards */}
       {!isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div 
+        <div
           className={`card border-2 transition-all cursor-pointer ${
             filterTaskStatus === 'Today' 
               ? 'bg-blue-100 border-blue-400 shadow-md' 

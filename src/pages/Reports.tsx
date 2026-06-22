@@ -10,6 +10,8 @@ import { fetchPayments } from '@/services/paymentsService';
 import { Quote } from '@/services/quotesService';
 import { Lead } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { RankedBarList } from '@/components/analytics/RankedBarList';
+import { TrendLineChart } from '@/components/trends/TrendLineChart';
 
 const formatDate = (date: Date) => {
   const year = date.getFullYear();
@@ -67,11 +69,11 @@ const getInstructionUnitWeight = (lead: Lead) => {
 export const Reports: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReport, setSelectedReport] = useState('overview');
-  const [rangePreset, setRangePreset] = useState<'today' | 'yesterday' | 'last7' | 'last30' | 'custom'>('today');
+  const [rangePreset, setRangePreset] = useState<'today' | 'yesterday' | 'last7' | 'last30' | 'custom'>('last30');
   const [range, setRange] = useState(() => {
     const today = new Date();
-    const formatted = formatDate(today);
-    return { start: formatted, end: formatted };
+    const start = new Date(today.getTime() - 30 * 86400000);
+    return { start: formatDate(start), end: formatDate(today) };
   });
   const [rangeInitialized, setRangeInitialized] = useState(false);
   const [rangeVersion, setRangeVersion] = useState(0);
@@ -1952,6 +1954,17 @@ export const Reports: React.FC = () => {
                 )}
               </div>
 
+              {/* Conversion by source (ranked) */}
+              <RankedBarList
+                title="Conversion by source"
+                caption="Conversion rate (%) per lead source, highest first"
+                items={leadAnalysisData.sourceBreakdown.map(source => ({
+                  label: source.source,
+                  count: Math.round(source.conversionRate),
+                }))}
+                defaultTone="info"
+              />
+
               {/* Status Breakdown */}
               <div className="card">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Lead Status Breakdown</h3>
@@ -2025,6 +2038,66 @@ export const Reports: React.FC = () => {
                 )}
               </div>
 
+              {/* Funnel Drop-off */}
+              {leadAnalysisData.conversionFunnel.length > 0 && (
+                <div className="card">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Funnel Drop-off</h3>
+                  <p className="text-sm text-gray-500 mb-4">Stage-to-stage leakage relative to the entry stage. Largest drop highlighted.</p>
+                  {(() => {
+                    const firstStageCount = leadAnalysisData.conversionFunnel[0].count;
+                    const drops = leadAnalysisData.conversionFunnel.map((stage, index) => {
+                      const prevCount = index > 0 ? leadAnalysisData.conversionFunnel[index - 1].count : 0;
+                      const dropPct = prevCount > 0 ? Math.round((1 - stage.count / prevCount) * 100) : 0;
+                      return dropPct;
+                    });
+                    let maxDropIndex = -1;
+                    let maxDropValue = -1;
+                    drops.forEach((d, i) => {
+                      if (i > 0 && d > maxDropValue) {
+                        maxDropValue = d;
+                        maxDropIndex = i;
+                      }
+                    });
+                    return (
+                      <div className="space-y-3">
+                        {leadAnalysisData.conversionFunnel.map((stage, index) => {
+                          const widthPct = firstStageCount > 0 ? (stage.count / firstStageCount) * 100 : 0;
+                          const dropPct = drops[index];
+                          const isLargestDrop = index === maxDropIndex;
+                          return (
+                            <div
+                              key={index}
+                              className={`rounded-lg px-3 py-2 ${isLargestDrop ? 'bg-red-50 ring-1 ring-red-200' : ''}`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium text-gray-700">{stage.stage}</span>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm text-gray-600">{stage.count} leads</span>
+                                  {index > 0 && (
+                                    <span
+                                      className="text-xs font-semibold"
+                                      style={{ color: '#ef4444' }}
+                                    >
+                                      -{dropPct}%{isLargestDrop ? ' largest drop' : ''}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded h-3">
+                                <div
+                                  className="h-3 rounded"
+                                  style={{ width: `${widthPct}%`, backgroundColor: '#1e3a8a' }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* Daily Trends */}
               {leadAnalysisData.dailyTrends.length > 0 && (
                 <div className="card">
@@ -2052,6 +2125,28 @@ export const Reports: React.FC = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Daily leads vs instructions trend (additive visual) */}
+                  <div className="mt-6">
+                    <TrendLineChart
+                      title="Daily leads vs instructions"
+                      caption="Leads generated and instructions won per day"
+                      series={[
+                        {
+                          key: 'leads',
+                          label: 'Leads',
+                          color: '#1e3a8a',
+                          points: leadAnalysisData.dailyTrends.map((d) => ({ x: d.date, y: d.leads })),
+                        },
+                        {
+                          key: 'instructions',
+                          label: 'Instructions',
+                          color: '#16a34a',
+                          points: leadAnalysisData.dailyTrends.map((d) => ({ x: d.date, y: d.conversions })),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
               )}

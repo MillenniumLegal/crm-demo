@@ -20,8 +20,47 @@ export interface WorklistItem {
   tone?: HubTone;
 }
 
+export interface DaySignal {
+  key: string;
+  label: string;
+  count: number;
+  prev: number;
+  delta: number;
+  direction: 'up' | 'down' | 'flat';
+  good: boolean;
+  spark: number[];
+  tone: HubTone;
+  icon: 'clock' | 'alert' | 'phone' | 'userCheck' | 'fileText' | 'checkCircle';
+  href: string;
+}
+export interface CallsToday {
+  made: number;
+  answered: number;
+  answerRate: number;
+  instructionIntent: number;
+  byHour: { hour: string; calls: number }[];
+}
+export interface DayFlow {
+  labels: string[];
+  instructions: number[];
+  leads: number[];
+  quotesAccepted: number[];
+}
+export interface PeakHours {
+  hours: string[];
+  leads: number[];
+  instructions: number[];
+  calls: number[];
+  leadPeak: string;
+  instructionPeak: string;
+  callPeak: string;
+}
 export interface DailyPipeline {
   hero: HeroStat[];
+  signals: DaySignal[];
+  calls: CallsToday;
+  flow: DayFlow;
+  peakHours: PeakHours;
   tasks: WorklistItem[];
   callbacks: WorklistItem[];
   quoteResponses: WorklistItem[];
@@ -100,4 +139,77 @@ export async function fetchMatters(): Promise<MattersData> {
     throw error;
   }
   return data as MattersData;
+}
+
+export interface FirmAnalytics {
+  kpis: MoneyKpi[];
+  lifecycle: { label: string; count: number; color: string }[];
+  temperature: { total: number; segments: { label: string; count: number; color: string }[] };
+  sentiment: { label: string; count: number; tone: HubTone }[];
+  objections: { label: string; count: number; quote?: string }[];
+  questions: { label: string; count: number; quote?: string }[];
+  capture: { label: string; pct: number }[];
+  commitments: { action: string; total: number; kept: number; broken: number; active: number }[];
+  lostReasons: { label: string; count: number }[];
+  closeDrivers: { label: string; count: number }[];
+  followups: { label: string; count: number; tone: HubTone }[];
+  phrases: { rep: string; text: string }[];
+  leads: {
+    bySource: { label: string; count: number }[];
+    byTransaction: { total: number; segments: { label: string; count: number; color: string }[] };
+    ageDistribution: { label: string; count: number }[];
+    conversionBySource: { label: string; pct: number }[];
+    disqualified: { label: string; count: number }[];
+  };
+}
+
+// Firm-wide analytics aggregate. In ty this rolls up leads, calls (3CX + AI), quotes,
+// instructions, and activity into the firm dashboard lenses.
+export async function fetchFirmAnalytics(): Promise<FirmAnalytics> {
+  const { data, error } = await supabase.rpc('get_firm_analytics', {});
+  if (error) {
+    console.error('Firm analytics RPC error:', error);
+    throw error;
+  }
+  return data as FirmAnalytics;
+}
+
+export interface TrendMomentum {
+  key: string;
+  label: string;
+  value: string;
+  deltaPct: number;
+  direction: 'up' | 'down' | 'flat';
+  good: boolean;
+  spark: number[];
+}
+export interface TrendWeeklyBar {
+  label: string;
+  value: number;
+  target?: number;
+}
+export interface FirmTrends {
+  range: string;
+  labels: string[];
+  series: {
+    leads: number[];
+    calls: number[];
+    instructions: number[];
+    revenue: number[];
+    conversion: number[];
+  };
+  momentum: TrendMomentum[];
+  weeklyInstructions: TrendWeeklyBar[];
+  weeklyRevenue: TrendWeeklyBar[];
+}
+
+// Firm-wide momentum over time. In ty this rolls up daily history (leads, calls, 3CX,
+// instructions, payments) into time series; here it hits the FIRM_TRENDS mock.
+export async function fetchFirmTrends(): Promise<FirmTrends> {
+  const { data, error } = await supabase.rpc('get_firm_trends', {});
+  if (error) {
+    console.error('Firm trends RPC error:', error);
+    throw error;
+  }
+  return data as FirmTrends;
 }
