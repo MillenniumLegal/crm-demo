@@ -7,6 +7,7 @@ import { Loader2, ListTodo, PhoneCall, FileText } from 'lucide-react';
 import { fetchDailyPipeline, DailyPipeline as DailyPipelineData } from '@/services/hubsService';
 import { HubHeroCards } from '@/components/hubs/HubHeroCards';
 import { DaySignalsTrend } from '@/components/hubs/DaySignalsTrend';
+import { LeadOriginMap } from '@/components/hubs/LeadOriginMap';
 import { PeakHoursChart } from '@/components/hubs/PeakHoursChart';
 import { CallsTodayCard } from '@/components/hubs/CallsTodayCard';
 import { WorklistCard } from '@/components/hubs/WorklistCard';
@@ -67,6 +68,11 @@ const DailyPipeline: React.FC = () => {
           { key: 'instructions', label: 'Instructions', color: '#16a34a', points: data.flow.labels.map((x, i) => ({ x, y: data.flow.instructions[i] })) },
           { key: 'quotesAccepted', label: 'Quotes accepted', color: '#0ea5e9', points: data.flow.labels.map((x, i) => ({ x, y: data.flow.quotesAccepted[i] })) },
         ]}
+      />
+
+      <LeadOriginMap
+        data={data.leadOrigins}
+        onOpenRegion={(region) => navigate(`/lead-management?origin=${encodeURIComponent(region.key)}`)}
       />
 
       <PeakHoursChart peak={data.peakHours} />

@@ -55,12 +55,46 @@ export interface PeakHours {
   instructionPeak: string;
   callPeak: string;
 }
+export interface LeadOriginLookup {
+  lead: string;
+  leadId: string;
+  ip: string;
+  city: string;
+  source: string;
+  transaction: string;
+  status: string;
+  createdAt: string;
+}
+export interface LeadOriginRegion {
+  key: string;
+  label: string;
+  area: string;
+  x: number;
+  y: number;
+  leads: number;
+  quotes: number;
+  instructions: number;
+  hot: number;
+  avgFee: number;
+  source: string;
+  transaction: string;
+  confidence: number;
+  bestWindow: string;
+  sample: LeadOriginLookup[];
+}
+export interface LeadOriginAnalytics {
+  updatedAt: string;
+  mappedPct: number;
+  note: string;
+  regions: LeadOriginRegion[];
+}
 export interface DailyPipeline {
   hero: HeroStat[];
   signals: DaySignal[];
   calls: CallsToday;
   flow: DayFlow;
   peakHours: PeakHours;
+  leadOrigins: LeadOriginAnalytics;
   tasks: WorklistItem[];
   callbacks: WorklistItem[];
   quoteResponses: WorklistItem[];

@@ -447,6 +447,99 @@ const DAILY_PIPELINE = {
     leads: [16, 18, 15, 20, 17, 22, 19, 24, 21, 23, 20, 26, 24, 27],
     quotesAccepted: [2, 3, 2, 4, 3, 4, 3, 5, 4, 5, 4, 5, 6, 6],
   },
+  leadOrigins: {
+    updatedAt: '09:12 today',
+    mappedPct: 91,
+    note: 'GeoIP lookup is strongest in London, North West and South East today. North West is creating the most quote-ready work; South West has high lead volume but needs faster first-touch before lunch.',
+    regions: [
+      {
+        key: 'scotland', label: 'Scotland', area: 'Glasgow / Edinburgh', x: 44, y: 14,
+        leads: 18, quotes: 11, instructions: 3, hot: 5, avgFee: 980, source: 'Google Ads', transaction: 'Purchase', confidence: 88, bestWindow: '10am-12pm',
+        sample: [
+          { lead: 'Iain Morrison', leadId: 'lead-origin-001', ip: '203.0.113.21', city: 'Glasgow', source: 'Google Ads', transaction: 'Purchase', status: 'Quote sent', createdAt: '08:54' },
+          { lead: 'Fiona Kerr', leadId: 'lead-origin-002', ip: '203.0.113.24', city: 'Edinburgh', source: 'Organic', transaction: 'Sale', status: 'New lead', createdAt: '09:16' },
+        ],
+      },
+      {
+        key: 'north-east', label: 'North East', area: 'Newcastle / Durham', x: 62, y: 33,
+        leads: 14, quotes: 8, instructions: 2, hot: 3, avgFee: 860, source: 'Organic', transaction: 'Sale', confidence: 84, bestWindow: '11am-1pm',
+        sample: [
+          { lead: 'Laura Fenwick', leadId: 'lead-origin-003', ip: '203.0.113.41', city: 'Newcastle', source: 'Organic', transaction: 'Sale', status: 'Callback due', createdAt: '09:42' },
+        ],
+      },
+      {
+        key: 'north-west', label: 'North West', area: 'Manchester / Liverpool', x: 43, y: 42,
+        leads: 36, quotes: 24, instructions: 7, hot: 11, avgFee: 1120, source: 'Google Ads', transaction: 'Sale + Purchase', confidence: 94, bestWindow: '9am-11am',
+        sample: [
+          { lead: 'Helen Parker', leadId: 'lead-origin-004', ip: '198.51.100.18', city: 'Manchester', source: 'Google Ads', transaction: 'Sale + Purchase', status: 'Hot lead', createdAt: '08:48' },
+          { lead: 'Mark Sutton', leadId: 'lead-origin-005', ip: '198.51.100.22', city: 'Liverpool', source: 'Bing', transaction: 'Purchase', status: 'Quote accepted', createdAt: '10:21' },
+          { lead: 'Diane Thomas', leadId: 'lead-origin-006', ip: '198.51.100.23', city: 'Warrington', source: 'Referral', transaction: 'Sale', status: 'Instruction intent', createdAt: '10:37' },
+        ],
+      },
+      {
+        key: 'yorkshire', label: 'Yorkshire', area: 'Leeds / Sheffield', x: 58, y: 48,
+        leads: 28, quotes: 18, instructions: 5, hot: 8, avgFee: 1040, source: 'Bing', transaction: 'Purchase', confidence: 90, bestWindow: '10am-12pm',
+        sample: [
+          { lead: 'Rebecca Shaw', leadId: 'lead-origin-007', ip: '198.51.100.44', city: 'Leeds', source: 'Bing', transaction: 'Purchase', status: 'Quote sent', createdAt: '09:58' },
+          { lead: 'Amir Patel', leadId: 'lead-origin-008', ip: '198.51.100.45', city: 'Sheffield', source: 'Google Ads', transaction: 'Remortgage', status: 'New lead', createdAt: '11:04' },
+        ],
+      },
+      {
+        key: 'midlands', label: 'Midlands', area: 'Birmingham / Nottingham', x: 54, y: 61,
+        leads: 31, quotes: 20, instructions: 6, hot: 9, avgFee: 1095, source: 'Google Ads', transaction: 'Sale', confidence: 92, bestWindow: '2pm-4pm',
+        sample: [
+          { lead: 'Priya Coleman', leadId: 'lead-origin-009', ip: '203.0.113.62', city: 'Birmingham', source: 'Google Ads', transaction: 'Sale', status: 'Hot lead', createdAt: '12:18' },
+          { lead: 'Chris Dale', leadId: 'lead-origin-010', ip: '203.0.113.64', city: 'Nottingham', source: 'Direct', transaction: 'Purchase', status: 'Callback due', createdAt: '13:05' },
+        ],
+      },
+      {
+        key: 'wales', label: 'Wales', area: 'Cardiff / Swansea', x: 38, y: 68,
+        leads: 16, quotes: 9, instructions: 2, hot: 4, avgFee: 910, source: 'Organic', transaction: 'Sale', confidence: 83, bestWindow: '3pm-5pm',
+        sample: [
+          { lead: 'Cerys Morgan', leadId: 'lead-origin-011', ip: '192.0.2.16', city: 'Cardiff', source: 'Organic', transaction: 'Sale', status: 'Quote sent', createdAt: '11:46' },
+        ],
+      },
+      {
+        key: 'east', label: 'East of England', area: 'Cambridge / Norwich', x: 66, y: 69,
+        leads: 22, quotes: 15, instructions: 3, hot: 6, avgFee: 1030, source: 'Referral', transaction: 'Remortgage', confidence: 87, bestWindow: '1pm-3pm',
+        sample: [
+          { lead: 'Oliver Reed', leadId: 'lead-origin-012', ip: '192.0.2.31', city: 'Cambridge', source: 'Referral', transaction: 'Remortgage', status: 'Quote sent', createdAt: '13:22' },
+        ],
+      },
+      {
+        key: 'london', label: 'London', area: 'Greater London', x: 65, y: 82,
+        leads: 42, quotes: 30, instructions: 9, hot: 14, avgFee: 1280, source: 'Google Ads', transaction: 'Purchase', confidence: 96, bestWindow: '2pm-5pm',
+        sample: [
+          { lead: 'Sophie Grant', leadId: 'lead-origin-013', ip: '203.0.113.88', city: 'London', source: 'Google Ads', transaction: 'Purchase', status: 'Instruction intent', createdAt: '14:11' },
+          { lead: 'Daniel West', leadId: 'lead-origin-014', ip: '203.0.113.91', city: 'Croydon', source: 'Direct', transaction: 'Sale + Purchase', status: 'Hot lead', createdAt: '14:44' },
+          { lead: 'Mina Clarke', leadId: 'lead-origin-015', ip: '203.0.113.94', city: 'Enfield', source: 'Organic', transaction: 'Sale', status: 'New lead', createdAt: '15:03' },
+        ],
+      },
+      {
+        key: 'south-east', label: 'South East', area: 'Brighton / Kent / Surrey', x: 68, y: 88,
+        leads: 34, quotes: 23, instructions: 8, hot: 10, avgFee: 1195, source: 'Google Ads', transaction: 'Sale + Purchase', confidence: 93, bestWindow: '12pm-3pm',
+        sample: [
+          { lead: 'George Blake', leadId: 'lead-origin-016', ip: '198.51.100.73', city: 'Brighton', source: 'Google Ads', transaction: 'Sale + Purchase', status: 'Quote accepted', createdAt: '12:35' },
+          { lead: 'Nadia Evans', leadId: 'lead-origin-017', ip: '198.51.100.77', city: 'Guildford', source: 'Bing', transaction: 'Purchase', status: 'Callback due', createdAt: '13:52' },
+        ],
+      },
+      {
+        key: 'south-west', label: 'South West', area: 'Bristol / Exeter', x: 40, y: 86,
+        leads: 27, quotes: 14, instructions: 3, hot: 7, avgFee: 975, source: 'Bing', transaction: 'Sale', confidence: 86, bestWindow: '9am-10am',
+        sample: [
+          { lead: 'Annie Gerald-Webb', leadId: 'lead-origin-018', ip: '192.0.2.53', city: 'Bristol', source: 'Bing', transaction: 'Sale', status: 'Quoted no touch', createdAt: '09:08' },
+          { lead: 'Tom Fisher', leadId: 'lead-origin-019', ip: '192.0.2.55', city: 'Exeter', source: 'Google Ads', transaction: 'Purchase', status: 'New lead', createdAt: '10:05' },
+        ],
+      },
+      {
+        key: 'northern-ireland', label: 'Northern Ireland', area: 'Belfast', x: 22, y: 42,
+        leads: 9, quotes: 5, instructions: 1, hot: 2, avgFee: 840, source: 'Direct', transaction: 'Remortgage', confidence: 79, bestWindow: '11am-12pm',
+        sample: [
+          { lead: 'Aoife Kelly', leadId: 'lead-origin-020', ip: '203.0.113.109', city: 'Belfast', source: 'Direct', transaction: 'Remortgage', status: 'New lead', createdAt: '11:18' },
+        ],
+      },
+    ],
+  },
   peakHours: {
     hours: ['8a', '9a', '10a', '11a', '12p', '1p', '2p', '3p', '4p', '5p', '6p'],
     leads: [3, 8, 14, 16, 10, 6, 9, 13, 15, 11, 5],
